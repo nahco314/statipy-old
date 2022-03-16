@@ -1,279 +1,392 @@
 from statipy.core.abstract_object import AbstractObject
+from typing import Optional
 
 import ast
-from ast import (expr, Attribute, Await, BinOp, BoolOp, Bytes, Call, Compare, Constant, Dict, DictComp, Ellipsis,
-                 FormattedValue, GeneratorExp, IfExp, JoinedStr, Lambda, List, ListComp, Name, NameConstant, NamedExpr,
-                 Num, Set, SetComp, Slice, Starred, Str, Subscript, Tuple, UnaryOp, Yield, YieldFrom)
 
 
-class Typedexpr(expr):
-    def __init__(self, *args, abstract_obj: AbstractObject, **kwargs):
+class TypedAST(ast.AST):
+    pass
+
+
+class Typedexpr(ast.expr, TypedAST):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.abstract_obj = abstract_obj
+        self.abstract_obj: Optional[AbstractObject] = None
 
 
-class TypedAttribute(Attribute, Typedexpr):
-    _fields = (
-        'value',
-        'attr',
-        'ctx',
-        'abstract_obj',
-    )
+class Typedstmt(ast.stmt, TypedAST):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
-class TypedAwait(Await, Typedexpr):
-    _fields = (
-        'value',
-        'abstract_obj',
-    )
-
+class TypedAttribute(ast.Attribute, Typedexpr):
+    def __init__(self, value, attr, ctx):
+        self.value: Typedexpr = value
+        self.attr: Typedexpr = attr
+        self.ctx: Typedexpr = ctx
 
-class TypedBinOp(BinOp, Typedexpr):
-    _fields = (
-        'left',
-        'op',
-        'right',
-        'abstract_obj',
-    )
 
+class TypedAwait(ast.Await, Typedexpr):
+    def __init__(self, value):
+        self.value: Typedexpr = value
 
-class TypedBoolOp(BoolOp, Typedexpr):
-    _fields = (
-        'op',
-        'values',
-        'abstract_obj',
-    )
 
+class TypedBinOp(ast.BinOp, Typedexpr):
+    def __init__(self, left, op, right):
+        self.left: Typedexpr = left
+        self.op: Typedexpr = op
+        self.right: Typedexpr = right
 
-class TypedBytes(Bytes, Typedexpr):
-    _fields = (
-        's',
-        'abstract_obj',
-    )
 
+class TypedBoolOp(ast.BoolOp, Typedexpr):
+    def __init__(self, op, values):
+        self.op: Typedexpr = op
+        self.values: list[Typedexpr] = values
 
-class TypedCall(Call, Typedexpr):
-    _fields = (
-        'func',
-        'args',
-        'keywords',
-        'abstract_obj',
-    )
 
+class TypedBytes(ast.Bytes, Typedexpr):
+    def __init__(self, s):
+        self.s: list[Typedexpr] = s
 
-class TypedCompare(Compare, Typedexpr):
-    _fields = (
-        'left',
-        'ops',
-        'comparators',
-        'abstract_obj',
-    )
 
+class TypedCall(ast.Call, Typedexpr):
+    def __init__(self, func, args, keywords):
+        self.func: Typedexpr = func
+        self.args: list[Typedexpr] = args
+        self.keywords: list[Typedexpr] = keywords
 
-class TypedConstant(Constant, Typedexpr):
-    _fields = (
-        'value',
-        'kind',
-        'abstract_obj',
-    )
 
+class TypedCompare(ast.Compare, Typedexpr):
+    def __init__(self, left, ops, comparators):
+        self.left: Typedexpr = left
+        self.ops: list[Typedexpr] = ops
+        self.comparators: list[Typedexpr] = comparators
 
-class TypedDict(Dict, Typedexpr):
-    _fields = (
-        'keys',
-        'values',
-        'abstract_obj',
-    )
 
+class TypedConstant(ast.Constant, Typedexpr):
+    def __init__(self, value, kind):
+        self.value: Typedexpr = value
+        self.kind: Typedexpr = kind
 
-class TypedDictComp(DictComp, Typedexpr):
-    _fields = (
-        'key',
-        'value',
-        'generators',
-        'abstract_obj',
-    )
 
-
-class TypedEllipsis(Ellipsis, Typedexpr):
-    _fields = (
-        'abstract_obj',
-    )
+class TypedDict(ast.Dict, Typedexpr):
+    def __init__(self, keys, values):
+        self.keys: list[Typedexpr] = keys
+        self.values: list[Typedexpr] = values
 
 
-class TypedFormattedValue(FormattedValue, Typedexpr):
-    _fields = (
-        'value',
-        'conversion',
-        'format_spec',
-        'abstract_obj',
-    )
+class TypedDictComp(ast.DictComp, Typedexpr):
+    def __init__(self, key, value, generators):
+        self.key: Typedexpr = key
+        self.value: Typedexpr = value
+        self.generators: list[Typedexpr] = generators
 
 
-class TypedGeneratorExp(GeneratorExp, Typedexpr):
-    _fields = (
-        'elt',
-        'generators',
-        'abstract_obj',
-    )
+class TypedEllipsis(ast.Ellipsis, Typedexpr):
+    pass
 
 
-class TypedIfExp(IfExp, Typedexpr):
-    _fields = (
-        'test',
-        'body',
-        'orelse',
-        'abstract_obj',
-    )
+class TypedFormattedValue(ast.FormattedValue, Typedexpr):
+    def __init__(self, value, conversion, format_spec):
+        self.value: Typedexpr = value
+        self.conversion: Typedexpr = conversion
+        self.format_spec: Typedexpr = format_spec
 
-
-class TypedJoinedStr(JoinedStr, Typedexpr):
-    _fields = (
-        'values',
-        'abstract_obj',
-    )
 
+class TypedGeneratorExp(ast.GeneratorExp, Typedexpr):
+    def __init__(self, elt, generators):
+        self.elt: Typedexpr = elt
+        self.generators: list[Typedexpr] = generators
 
-class TypedLambda(Lambda, Typedexpr):
-    _fields = (
-        'args',
-        'body',
-        'abstract_obj',
-    )
 
+class TypedIfExp(ast.IfExp, Typedexpr):
+    def __init__(self, test, body, orelse):
+        self.test: Typedexpr = test
+        self.body: Typedexpr = body
+        self.orelse: Typedexpr = orelse
 
-class TypedList(List, Typedexpr):
-    _fields = (
-        'elts',
-        'ctx',
-        'abstract_obj',
-    )
 
+class TypedJoinedStr(ast.JoinedStr, Typedexpr):
+    def __init__(self, values):
+        self.values: list[Typedexpr] = values
 
-class TypedListComp(ListComp, Typedexpr):
-    _fields = (
-        'elt',
-        'generators',
-        'abstract_obj',
-    )
 
+class TypedLambda(ast.Lambda, Typedexpr):
+    def __init__(self, args, body):
+        self.args: list[Typedexpr] = args
+        self.body: Typedexpr = body
 
-class TypedName(Name, Typedexpr):
-    _fields = (
-        'id',
-        'ctx',
-        'abstract_obj',
-    )
 
+class TypedList(ast.List, Typedexpr):
+    def __init__(self, elts, ctx):
+        self.elts: list[Typedexpr] = elts
+        self.ctx: Typedexpr = ctx
 
-class TypedNameConstant(NameConstant, Typedexpr):
-    _fields = (
-        'value',
-        'kind',
-        'abstract_obj',
-    )
 
+class TypedListComp(ast.ListComp, Typedexpr):
+    def __init__(self, elt, generators):
+        self.elt: Typedexpr = elt
+        self.generators: list[Typedexpr] = generators
 
-class TypedNamedExpr(NamedExpr, Typedexpr):
-    _fields = (
-        'target',
-        'value',
-        'abstract_obj',
-    )
 
+class TypedName(ast.Name, Typedexpr):
+    def __init__(self, id, ctx):
+        self.id: Typedexpr = id
+        self.ctx: Typedexpr = ctx
 
-class TypedNum(Num, Typedexpr):
-    _fields = (
-        'n',
-        'abstract_obj',
-    )
 
+class TypedNameConstant(ast.NameConstant, Typedexpr):
+    def __init__(self, value, kind):
+        self.value: Typedexpr = value
+        self.kind: Typedexpr = kind
 
-class TypedSet(Set, Typedexpr):
-    _fields = (
-        'elts',
-        'abstract_obj',
-    )
 
+class TypedNamedExpr(ast.NamedExpr, Typedexpr):
+    def __init__(self, target, value):
+        self.target: Typedexpr = target
+        self.value: Typedexpr = value
 
-class TypedSetComp(SetComp, Typedexpr):
-    _fields = (
-        'elt',
-        'generators',
-        'abstract_obj',
-    )
 
+class TypedNum(ast.Num, Typedexpr):
+    def __init__(self, n):
+        self.n: Typedexpr = n
 
-class TypedSlice(Slice, Typedexpr):
-    _fields = (
-        'lower',
-        'upper',
-        'step',
-        'abstract_obj',
-    )
 
+class TypedSet(ast.Set, Typedexpr):
+    def __init__(self, elts):
+        self.elts: list[Typedexpr] = elts
 
-class TypedStarred(Starred, Typedexpr):
-    _fields = (
-        'value',
-        'ctx',
-        'abstract_obj',
-    )
 
+class TypedSetComp(ast.SetComp, Typedexpr):
+    def __init__(self, elt, generators):
+        self.elt: Typedexpr = elt
+        self.generators: list[Typedexpr] = generators
 
-class TypedStr(Str, Typedexpr):
-    _fields = (
-        's',
-        'abstract_obj',
-    )
 
+class TypedSlice(ast.Slice, Typedexpr):
+    def __init__(self, lower, upper, step):
+        self.lower: Typedexpr = lower
+        self.upper: Typedexpr = upper
+        self.step: Typedexpr = step
 
-class TypedSubscript(Subscript, Typedexpr):
-    _fields = (
-        'value',
-        'slice',
-        'ctx',
-        'abstract_obj',
-    )
 
+class TypedStarred(ast.Starred, Typedexpr):
+    def __init__(self, value, ctx):
+        self.value: Typedexpr = value
+        self.ctx: Typedexpr = ctx
 
-class TypedTuple(Tuple, Typedexpr):
-    _fields = (
-        'elts',
-        'ctx',
-        'abstract_obj',
-    )
 
+class TypedStr(ast.Str, Typedexpr):
+    def __init__(self, s):
+        self.s: list[Typedexpr] = s
 
-class TypedUnaryOp(UnaryOp, Typedexpr):
-    _fields = (
-        'op',
-        'operand',
-        'abstract_obj',
-    )
 
+class TypedSubscript(ast.Subscript, Typedexpr):
+    def __init__(self, value, slice, ctx):
+        self.value: Typedexpr = value
+        self.slice: Typedexpr = slice
+        self.ctx: Typedexpr = ctx
 
-class TypedYield(Yield, Typedexpr):
-    _fields = (
-        'value',
-        'abstract_obj',
-    )
 
+class TypedTuple(ast.Tuple, Typedexpr):
+    def __init__(self, elts, ctx):
+        self.elts: list[Typedexpr] = elts
+        self.ctx: Typedexpr = ctx
 
-class TypedYieldFrom(YieldFrom, Typedexpr):
-    _fields = (
-        'value',
-        'abstract_obj',
-    )
 
+class TypedUnaryOp(ast.UnaryOp, Typedexpr):
+    def __init__(self, op, operand):
+        self.op: Typedexpr = op
+        self.operand: Typedexpr = operand
 
-def from_node(node: expr, abstract_obj: AbstractObject) -> Typedexpr:
+
+class TypedYield(ast.Yield, Typedexpr):
+    def __init__(self, value):
+        self.value: Typedexpr = value
+
+
+class TypedYieldFrom(ast.YieldFrom, Typedexpr):
+    def __init__(self, value):
+        self.value: Typedexpr = value
+
+
+class TypedAnnAssign(ast.AnnAssign, Typedstmt):
+    def __init__(self, target, annotation, value, simple):
+        self.target: Typedstmt = target
+        self.annotation: Typedstmt = annotation
+        self.value: Typedstmt = value
+        self.simple: Typedstmt = simple
+
+
+class TypedAssert(ast.Assert, Typedstmt):
+    def __init__(self, test, msg):
+        self.test: Typedstmt = test
+        self.msg: Typedstmt = msg
+
+
+class TypedAssign(ast.Assign, Typedstmt):
+    def __init__(self, targets, value, type_comment):
+        self.targets: list[Typedstmt] = targets
+        self.value: Typedstmt = value
+        self.type_comment: Typedstmt = type_comment
+
+
+class TypedAsyncFor(ast.AsyncFor, Typedstmt):
+    def __init__(self, target, iter, body, orelse, type_comment):
+        self.target: Typedstmt = target
+        self.iter: Typedstmt = iter
+        self.body: Typedstmt = body
+        self.orelse: Typedstmt = orelse
+        self.type_comment: Typedstmt = type_comment
+
+
+class TypedAsyncFunctionDef(ast.AsyncFunctionDef, Typedstmt):
+    def __init__(self, name, args, body, decorator_list, returns, type_comment):
+        self.name: Typedstmt = name
+        self.args: list[Typedstmt] = args
+        self.body: Typedstmt = body
+        self.decorator_list: Typedstmt = decorator_list
+        self.returns: list[Typedstmt] = returns
+        self.type_comment: Typedstmt = type_comment
+
+
+class TypedAsyncWith(ast.AsyncWith, Typedstmt):
+    def __init__(self, items, body, type_comment):
+        self.items: list[Typedstmt] = items
+        self.body: Typedstmt = body
+        self.type_comment: Typedstmt = type_comment
+
+
+class TypedAugAssign(ast.AugAssign, Typedstmt):
+    def __init__(self, target, op, value):
+        self.target: Typedstmt = target
+        self.op: Typedstmt = op
+        self.value: Typedstmt = value
+
+
+class TypedBreak(ast.Break, Typedstmt):
+    pass
+
+
+class TypedClassDef(ast.ClassDef, Typedstmt):
+    def __init__(self, name, bases, keywords, body, decorator_list):
+        self.name: Typedstmt = name
+        self.bases: list[Typedstmt] = bases
+        self.keywords: list[Typedstmt] = keywords
+        self.body: Typedstmt = body
+        self.decorator_list: Typedstmt = decorator_list
+
+
+class TypedContinue(ast.Continue, Typedstmt):
+    pass
+
+
+class TypedDelete(ast.Delete, Typedstmt):
+    def __init__(self, targets):
+        self.targets: list[Typedstmt] = targets
+
+
+class TypedExpr(ast.Expr, Typedstmt):
+    def __init__(self, value):
+        self.value: Typedstmt = value
+
+
+class TypedFor(ast.For, Typedstmt):
+    def __init__(self, target, iter, body, orelse, type_comment):
+        self.target: Typedstmt = target
+        self.iter: Typedstmt = iter
+        self.body: Typedstmt = body
+        self.orelse: Typedstmt = orelse
+        self.type_comment: Typedstmt = type_comment
+
+
+class TypedFunctionDef(ast.FunctionDef, Typedstmt):
+    def __init__(self, name, args, body, decorator_list, returns, type_comment):
+        self.name: Typedstmt = name
+        self.args: list[Typedstmt] = args
+        self.body: Typedstmt = body
+        self.decorator_list: Typedstmt = decorator_list
+        self.returns: list[Typedstmt] = returns
+        self.type_comment: Typedstmt = type_comment
+
+
+class TypedGlobal(ast.Global, Typedstmt):
+    def __init__(self, names):
+        self.names: list[Typedstmt] = names
+
+
+class TypedIf(ast.If, Typedstmt):
+    def __init__(self, test, body, orelse):
+        self.test: Typedstmt = test
+        self.body: Typedstmt = body
+        self.orelse: Typedstmt = orelse
+
+
+class TypedImport(ast.Import, Typedstmt):
+    def __init__(self, names):
+        self.names: list[Typedstmt] = names
+
+
+class TypedImportFrom(ast.ImportFrom, Typedstmt):
+    def __init__(self, module, names, level):
+        self.module: Typedstmt = module
+        self.names: list[Typedstmt] = names
+        self.level: Typedstmt = level
+
+
+class TypedMatch(ast.Match, Typedstmt):
+    def __init__(self, subject, cases):
+        self.subject: Typedstmt = subject
+        self.cases: list[Typedstmt] = cases
+
+
+class TypedNonlocal(ast.Nonlocal, Typedstmt):
+    def __init__(self, names):
+        self.names: list[Typedstmt] = names
+
+
+class TypedPass(ast.Pass, Typedstmt):
+    pass
+
+
+class TypedRaise(ast.Raise, Typedstmt):
+    def __init__(self, exc, cause):
+        self.exc: Typedstmt = exc
+        self.cause: Typedstmt = cause
+
+
+class TypedReturn(ast.Return, Typedstmt):
+    def __init__(self, value):
+        self.value: Typedstmt = value
+
+
+class TypedTry(ast.Try, Typedstmt):
+    def __init__(self, body, handlers, orelse, finalbody):
+        self.body: Typedstmt = body
+        self.handlers: list[Typedstmt] = handlers
+        self.orelse: Typedstmt = orelse
+        self.finalbody: Typedstmt = finalbody
+
+
+class TypedWhile(ast.While, Typedstmt):
+    def __init__(self, test, body, orelse):
+        self.test: Typedstmt = test
+        self.body: Typedstmt = body
+        self.orelse: Typedstmt = orelse
+
+
+class TypedWith(ast.With, Typedstmt):
+    def __init__(self, items, body, type_comment):
+        self.items: list[Typedstmt] = items
+        self.body: Typedstmt = body
+        self.type_comment: Typedstmt = type_comment
+
+
+def from_node(node: ast.AST) -> TypedAST:
     cls_name = node.__class__.__name__
     typed_cls = globals()[f'Typed{cls_name}']
 
-    kwargs = {"abstract_obj": abstract_obj}
-    for kw in node.__class__._fields:
-        kwargs[kw] = getattr(node, kw)
+    kwargs = {kw: getattr(node, kw) for kw in node.__class__._fields}
 
     typed_node = typed_cls(**kwargs)
     return typed_node

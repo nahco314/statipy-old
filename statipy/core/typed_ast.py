@@ -486,10 +486,10 @@ class IsNot(ast.IsNot, cmpop):
     pass
 
 
-class JoinedStr(ast.JoinedStr, Typedexpr):
+class TypedJoinedStr(ast.JoinedStr, Typedexpr):
     def __init__(self, lineno: int, end_lineno: int, col_offset: int, end_col_offset: int,
                  values: list[Typedexpr]):
-        super(JoinedStr, self).__init__(lineno, end_lineno, col_offset, end_col_offset)
+        super(TypedJoinedStr, self).__init__(lineno, end_lineno, col_offset, end_col_offset)
         self.values = values
 
 

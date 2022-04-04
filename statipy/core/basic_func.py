@@ -7,6 +7,16 @@ import statipy.errors as errors
 # けど、今のとこまだわからんし変更に手間かかる訳でもないのでとりあえず拡張性高そうでCPythonに合っているこの実装にしておく
 
 
+def BINARY_FUNC(method_name: str):
+    def func(a: AbstractObject, b: AbstractObject) -> AbstractObject:
+        res = binary_op1(a, b, method_name)
+        if res != py_not_implemented:
+            return res
+
+        raise errors.TypeError()
+    return func
+
+
 def index_check(obj: AbstractObject) -> bool:
     return getattr(obj.type, "index", None) is not None  # hasattr?
 
@@ -42,24 +52,19 @@ def binary_i_op1(a: AbstractObject, b: AbstractObject, i_op: str, op: str) -> Ab
     return res
 
 
-def py_add(a: AbstractObject, b: AbstractObject) -> AbstractObject:
-    res = binary_op1(a, b, "add")
-    if res != py_not_implemented:
-        return res
-
-    # sq.concat?
-
-    raise errors.TypeError()
-
-
-def py_mul(a: AbstractObject, b: AbstractObject) -> AbstractObject:
-    res = binary_op1(a, b, "mul")
-    if res != py_not_implemented:
-        return res
-
-    # sq.repeat?
-
-    raise errors.TypeError()
+py_add = BINARY_FUNC("add")  # sq.concat?
+py_sub = BINARY_FUNC("sub")
+py_mul = BINARY_FUNC("mul")  # sq.repeat?
+py_div = BINARY_FUNC("div")
+py_floordiv = BINARY_FUNC("floordiv")
+py_mod = BINARY_FUNC("mod")
+py_pow = BINARY_FUNC("pow")
+py_lshift = BINARY_FUNC("lshift")
+py_rshift = BINARY_FUNC("rshift")
+py_or = BINARY_FUNC("or")
+py_xor = BINARY_FUNC("xor")
+py_and = BINARY_FUNC("and")
+py_matmul = BINARY_FUNC("matmul")
 
 
 def py_inplace_add(a: AbstractObject, b: AbstractObject) -> AbstractObject:

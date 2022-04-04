@@ -9,6 +9,9 @@ class NodePreprocessor(ast.NodeTransformer):
         self.code = code
         self.lines = code.split("\n")
 
+    def make_ast(self) -> Typedmod:
+        return self.visit(ast.parse(self.code))
+
     def get_code_slice(self, start_lineno: int, start_col_offset: int, end_lineno: int, end_col_offset: int) -> str:
         start_lineno -= 1
         end_lineno -= 1

@@ -198,6 +198,12 @@ class Dict(BuiltinType):
         self.special_attr["value"] = Undefined()
 
 
+class Bool(BuiltinType):
+    def __init__(self):
+        super().__init__()
+        # ToDo: Intを継承させる
+
+
 Attr: TypeAlias = dict[str, AbstractObject]
 
 binary_func = Callable[[AbstractObject, AbstractObject], AbstractObject]

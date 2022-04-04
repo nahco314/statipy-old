@@ -6,6 +6,9 @@ from collections import defaultdict
 
 
 class AbstractObject:
+    # rootかどうかが間違いやすそうだし、get_objが必要なのかがよくわからない
+    # どうにかできそうだけど
+
     defined = True
 
     def __init__(self, type_: AbstractType):
@@ -36,6 +39,9 @@ class AbstractObject:
             return obj
 
     def unification(self, target: AbstractObject):
+        if self is target:
+            return
+
         if isinstance(target, Undefined):
             target.attr = self.attr
             target.special_attr = self.special_attr
@@ -160,6 +166,36 @@ class Int(BuiltinType):
 
         self.add = int_bin_func
         self.index = int_int
+
+
+class List(BuiltinType):
+    def __init__(self):
+        super().__init__()
+
+        self.special_attr["elt"] = Undefined()
+
+
+class Tuple(BuiltinType):
+    # ToDo: 定数長のタプルへの対応
+    def __init__(self):
+        super().__init__()
+
+        self.special_attr["elt"] = Undefined()
+
+
+class Set(BuiltinType):
+    def __init__(self):
+        super().__init__()
+
+        self.special_attr["elt"] = Undefined()
+
+
+class Dict(BuiltinType):
+    def __init__(self):
+        super().__init__()
+
+        self.special_attr["key"] = Undefined()
+        self.special_attr["value"] = Undefined()
 
 
 Attr: TypeAlias = dict[str, AbstractObject]

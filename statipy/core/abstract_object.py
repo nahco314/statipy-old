@@ -84,7 +84,22 @@ class AbstractType(AbstractObject):
         # (method name, special method name(s))
         ("repr", ["__repr__"]),
         ("str", ["__str__"]),
-        ("add", ["__add__", "__radd__"])
+        ("add", ["__add__", "__radd__"]),
+        ("sub", ["__sub__", "__rsub__"]),
+        ("mul", ["__mul__", "__rmul__"]),
+        ("div", ["__truediv__", "__rtruediv__"]),
+        ("floordiv", ["__floordiv__", "__rfloordiv__"]),
+        ("mod", ["__mod__", "__rmod__"]),
+        ("pow", ["__pow__", "__rpow__"]),
+        ("lshift", ["__lshift__", "__rlshift__"]),
+        ("rshift", ["__rshift__", "__rrshift__"]),
+        ("or", ["__or__", "__ror__"]),
+        ("xor", ["__xor__", "__rxor__"]),
+        ("and", ["__and__", "__rand__"]),
+        ("matmul", ["__matmul__", "__rmatmul__"]),
+        ("negative", ["__neg__"]),
+        ("positive", ["__pos__"]),
+        ("invert", ["__invert__"]),
     )
 
     def __init__(self):

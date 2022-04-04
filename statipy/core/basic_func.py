@@ -1,7 +1,7 @@
 from statipy.core.abstract_object import AbstractObject, py_not_implemented
 import statipy.errors as errors
 from statipy.core.environment import Environment
-from typing import TypeAlias, Callable
+from typing import TypeAlias, Callable, Optional
 
 
 # ここらへんの関数群はAbstractObjectのメソッドにしたほうが良い気がする
@@ -80,6 +80,22 @@ def binary_i_op1(env: Environment, a: AbstractObject, b: AbstractObject, i_op: s
         res = binary_op1(env, a, b, op)
 
     return res
+
+
+def py_call(
+        env: Environment, func: AbstractObject, args: list[AbstractObject], kwargs: dict[str, AbstractObject],
+        starred_arg: Optional[AbstractObject] = None, starred_kw: Optional[AbstractObject] = None
+        ) -> AbstractObject:
+    if starred_arg or starred_kw:
+        raise errors.Mijissou
+    if kwargs:
+        raise errors.Mijissou
+
+    f_call = getattr(func.type, "call", None)
+    if f_call is not None:
+        return f_call(env, func, args)
+
+    raise errors.TypeError
 
 
 py_add: binary_func = BINARY_FUNC("add")  # sq.concat?

@@ -10,6 +10,7 @@ from statipy.core.abstract_object import (AbstractObject,
 from statipy.core.basic_func import (py_add, py_sub, py_mul, py_div, py_floordiv, py_mod, py_pow, py_lshift, py_rshift,
                                      py_or, py_xor, py_and, py_matmul,
                                      py_inplace_add, py_inplace_mul,
+                                     py_call,
                                      py_negative, py_positive, py_invert)
 
 from statipy.core.environment import Environment
@@ -177,5 +178,17 @@ class Typer(NodeTransformer):
         self.generic_visit(node)
         # ToDo: __eq__とかの評価をする
         res = Bool().create_instance()
+        node.abstract_object = res
+        return node
+
+    def visit_Call(self, node: TypedCall) -> TypedCall:
+        self.generic_visit(node)
+        if node.keywords:
+            raise errors.Mijissou
+        if any(isinstance(arg, TypedStarred) for arg in node.args):
+            raise errors.Mijissou
+
+        args = [arg.abstract_obj.get_obj() for arg in node.args]
+        res = py_call(self.env, node.func.abstract_obj.get_obj(), args)
         node.abstract_object = res
         return node

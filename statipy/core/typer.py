@@ -163,3 +163,12 @@ class Typer(NodeTransformer):
                 raise Exception
         node.abstract_object = res
         return node
+
+    def visit_BoolOp(self, node: TypedBoolOp) -> TypedBoolOp:
+        # ToDo: いい感じのエラーメッセージを出す
+        self.generic_visit(node)
+        first_obj = node.values[0].abstract_obj.get_obj()
+        for value in node.values:
+            value.abstract_obj.get_obj().unification(first_obj)
+        node.abstract_object = first_obj
+        return node

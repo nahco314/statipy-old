@@ -23,7 +23,7 @@ class Typer(NodeTransformer):
         self.t_ast = NodePreprocessor(code).make_ast()
         if context is None:
             context = Environment(self.t_ast)
-        self.context = context
+        self.env = context
 
     def analysis(self) -> Typedmod:
         self.visit(self.t_ast)
@@ -97,7 +97,7 @@ class Typer(NodeTransformer):
         return node
 
     def visit_Name(self, node: TypedName) -> TypedName:
-        res = self.context.get_variable(node, node.id)
+        res = self.env.get_variable(node, node.id)
         node.abstract_object = res
         return node
 
@@ -120,11 +120,11 @@ class Typer(NodeTransformer):
                 # ToDo: __bool__ の評価
                 res = Bool().create_instance()
             case USub():
-                res = py_negative(node.operand.abstract_obj.get_obj())
+                res = py_negative(self.env, node.operand.abstract_obj.get_obj())
             case UAdd():
-                res = py_positive(node.operand.abstract_obj.get_obj())
+                res = py_positive(self.env, node.operand.abstract_obj.get_obj())
             case Invert():
-                res = py_invert(node.operand.abstract_obj.get_obj())
+                res = py_invert(self.env, node.operand.abstract_obj.get_obj())
             case _:
                 raise Exception
         node.abstract_object = res
@@ -134,31 +134,31 @@ class Typer(NodeTransformer):
         self.generic_visit(node)
         match node.op:
             case Add():
-                res = py_add(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+                res = py_add(self.env, node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
             case Sub():
-                res = py_sub(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+                res = py_sub(self.env, node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
             case Mult():
-                res = py_mul(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+                res = py_mul(self.env, node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
             case Div():
-                res = py_div(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+                res = py_div(self.env, node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
             case FloorDiv():
-                res = py_floordiv(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+                res = py_floordiv(self.env, node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
             case Mod():
-                res = py_mod(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+                res = py_mod(self.env, node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
             case Pow():
-                res = py_pow(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+                res = py_pow(self.env, node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
             case LShift():
-                res = py_lshift(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+                res = py_lshift(self.env, node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
             case RShift():
-                res = py_rshift(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+                res = py_rshift(self.env, node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
             case BitOr():
-                res = py_or(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+                res = py_or(self.env, node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
             case BitXor():
-                res = py_xor(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+                res = py_xor(self.env, node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
             case BitAnd():
-                res = py_and(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+                res = py_and(self.env, node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
             case MatMult():
-                res = py_matmul(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+                res = py_matmul(self.env, node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
             case _:
                 raise Exception
         node.abstract_object = res

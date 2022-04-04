@@ -23,3 +23,87 @@ class Typer(NodeTransformer):
     def analysis(self) -> Typedmod:
         self.visit(self.t_ast)
         return self.t_ast
+
+    def visit_Constant(self, node: TypedConstant) -> TypedConstant:
+        match node.value:
+            case int():
+                res = Int().create_instance()
+            case str():
+                res = Str().create_instance()
+            case _:
+                raise errors.Mijissou(repr(node.value))
+
+        node.abstract_object = res
+
+        return node
+
+    def visit_FormattedValue(self, node: TypedFormattedValue) -> TypedFormattedValue:
+        self.generic_visit(node)
+        node.abstract_object = Str().create_instance()
+        return node
+
+    def visit_JoinedStr(self, node: TypedJoinedStr) -> TypedJoinedStr:
+        self.generic_visit(node)
+        node.abstract_object = Str().create_instance()
+        return node
+
+    def visit_List(self, node: TypedList) -> TypedList:
+        self.generic_visit(node)
+        a_objects = [elt.abstract_obj.get_obj() for elt in node.elts]
+        for obj in a_objects:
+            obj.unification(a_objects[0].get_obj())
+        res = List().create_instance()
+        res.special_attr["elt"] = a_objects[0].get_obj()
+        node.abstract_object = res
+        return node
+
+    def visit_Tuple(self, node: TypedTuple) -> TypedTuple:
+        self.generic_visit(node)
+        a_objects = [elt.abstract_obj.get_obj() for elt in node.elts]
+        for obj in a_objects:
+            obj.unification(a_objects[0].get_obj())
+        res = Tuple().create_instance()
+        res.special_attr["elt"] = a_objects[0].get_obj()
+        node.abstract_object = res
+        return node
+
+    def visit_Set(self, node: TypedSet) -> TypedSet:
+        self.generic_visit(node)
+        a_objects = [elt.abstract_obj.get_obj() for elt in node.elts]
+        for obj in a_objects:
+            obj.unification(a_objects[0].get_obj())
+        res = Set().create_instance()
+        res.special_attr["elt"] = a_objects[0].get_obj()
+        node.abstract_object = res
+        return node
+
+    def visit_Dict(self, node: TypedDict) -> TypedDict:
+        self.generic_visit(node)
+        key_a_objects = [elt.abstract_obj.get_obj() for elt in node.keys]
+        value_a_objects = [elt.abstract_obj.get_obj() for elt in node.values]
+        for obj in key_a_objects:
+            obj.unification(key_a_objects[0].get_obj())
+        for obj in value_a_objects:
+            obj.unification(value_a_objects[0].get_obj())
+        res = Dict().create_instance()
+        res.special_attr["key"] = key_a_objects[0].get_obj()
+        res.special_attr["value"] = value_a_objects[0].get_obj()
+        node.abstract_object = res
+        return node
+
+    def visit_Name(self, node: TypedName) -> TypedName:
+        res = self.context.get_variable(node, node.id)
+        node.abstract_object = res
+        return node
+
+    def visit_Starred(self, node: TypedStarred) -> TypedStarred:
+        self.generic_visit(node)
+        res = List().create_instance()
+        res.special_attr["elt"] = node.value.abstract_obj.get_obj()
+        node.abstract_object = res
+        # ?
+        return node
+
+    def visit_Expr(self, node: TypedExpr) -> TypedExpr:
+        self.generic_visit(node)
+        return node

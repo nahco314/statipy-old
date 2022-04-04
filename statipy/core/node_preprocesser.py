@@ -27,16 +27,16 @@ class NodePreprocessor(ast.NodeTransformer):
         for i in range(start_lineno, end_lineno + 1):
             if i == start_lineno == end_lineno:
                 for j in range(start_col_offset, end_col_offset):
-                    yield self.lines[i][j], i+1, j
+                    yield self.lines[i][j], i + 1, j
             elif i == start_lineno:
                 for j in range(start_col_offset, len(self.lines[i])):
-                    yield self.lines[i][j], i+1, j
+                    yield self.lines[i][j], i + 1, j
             elif i == end_lineno:
                 for j in range(end_col_offset):
-                    yield self.lines[i][j], i+1, j
+                    yield self.lines[i][j], i + 1, j
             else:
                 for j in range(len(self.lines[i])):
-                    yield self.lines[i][j], i+1, j
+                    yield self.lines[i][j], i + 1, j
 
     def visit_Constant(self, node: ast.Constant) -> TypedConstant:
         return TypedConstant(node.lineno, node.end_lineno, node.col_offset, node.end_col_offset,
@@ -513,7 +513,7 @@ class NodePreprocessor(ast.NodeTransformer):
         guard = self.visit(node.guard)
         body = [self.visit(b) for b in node.body]
         return Typedmatch_case(node.lineno, node.end_lineno, node.col_offset, node.end_col_offset,
-                              pattern, guard, body)
+                               pattern, guard, body)
 
     def visit_MatchValue(self, node: ast.MatchValue) -> TypedMatchValue:
         value = self.visit(node.value)
@@ -538,7 +538,6 @@ class NodePreprocessor(ast.NodeTransformer):
         patterns = [self.visit(p) for p in node.patterns]
         return TypedMatchMapping(node.lineno, node.end_lineno, node.col_offset, node.end_col_offset,
                                  keys, patterns, node.rest)
-
 
     def visit_MatchClass(self, node: ast.MatchClass) -> TypedMatchClass:
         cls = self.visit(node.cls)
@@ -638,9 +637,23 @@ class NodePreprocessor(ast.NodeTransformer):
     #       return TypedAsyncFor(node.lineno, node.end_lineno, node.col_offset, node.end_col_offset,
     #                           target, iter_, body, orelse, node.type_comment)
 
-
     #  def visit_AsyncWith(self, node: ast.AsyncWith) -> TypedAsyncWith:
     #      items = [self.visit(i) for i in node.items]
     #      body = [self.visit(b) for b in node.body]
     #      return TypedAsyncWith(node.lineno, node.end_lineno, node.col_offset, node.end_col_offset,
     #                            items, body, node.type_comment)
+
+    def visit_Module(self, node: ast.Module) -> TypedModule:
+        body = [self.visit(b) for b in node.body]
+        return TypedModule(1, len(self.lines), 0, len(self.lines[-1]),
+                           body, node.type_ignores)
+
+    def visit_Interactive(self, node: ast.Interactive) -> TypedInteractive:
+        body = [self.visit(b) for b in node.body]
+        return TypedInteractive(node.lineno, node.end_lineno, node.col_offset, node.end_col_offset,
+                                body)
+
+    def visit_Expression(self, node: ast.Expression) -> TypedExpression:
+        body = self.visit(node.body)
+        return TypedExpression(node.lineno, node.end_lineno, node.col_offset, node.end_col_offset,
+                               body)

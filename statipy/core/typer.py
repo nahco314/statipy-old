@@ -7,7 +7,9 @@ from statipy.core.abstract_object import (AbstractObject,
                                           Int, Str, List, Tuple, Set, Dict, Bool,
                                           Undefined)
 
-from statipy.core.basic_func import (py_add, py_mul, py_inplace_add, py_inplace_mul,
+from statipy.core.basic_func import (py_add, py_sub, py_mul, py_div, py_floordiv, py_mod, py_pow, py_lshift, py_rshift,
+                                     py_or, py_xor, py_and, py_matmul,
+                                     py_inplace_add, py_inplace_mul,
                                      py_negative, py_positive, py_invert)
 
 from statipy.core.environment import Environment
@@ -123,6 +125,40 @@ class Typer(NodeTransformer):
                 res = py_positive(node.operand.abstract_obj.get_obj())
             case Invert():
                 res = py_invert(node.operand.abstract_obj.get_obj())
+            case _:
+                raise Exception
+        node.abstract_object = res
+        return node
+
+    def visit_BinOp(self, node: TypedBinOp) -> TypedBinOp:
+        self.generic_visit(node)
+        match node.op:
+            case Add():
+                res = py_add(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+            case Sub():
+                res = py_sub(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+            case Mult():
+                res = py_mul(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+            case Div():
+                res = py_div(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+            case FloorDiv():
+                res = py_floordiv(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+            case Mod():
+                res = py_mod(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+            case Pow():
+                res = py_pow(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+            case LShift():
+                res = py_lshift(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+            case RShift():
+                res = py_rshift(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+            case BitOr():
+                res = py_or(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+            case BitXor():
+                res = py_xor(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+            case BitAnd():
+                res = py_and(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
+            case MatMult():
+                res = py_matmul(node.left.abstract_obj.get_obj(), node.right.abstract_obj.get_obj())
             case _:
                 raise Exception
         node.abstract_object = res

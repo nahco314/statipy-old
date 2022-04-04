@@ -4,7 +4,7 @@ from ast import NodeTransformer
 from statipy.core.typed_ast import *
 from statipy.core.node_preprocesser import NodePreprocessor
 from statipy.core.abstract_object import (AbstractObject,
-                                          Int, Str, List, Tuple, Set, Dict, Bool,
+                                          Int, Str, List, Tuple, Set, Dict, Bool, Slice,
                                           Undefined)
 
 from statipy.core.basic_func import (py_add, py_sub, py_mul, py_div, py_floordiv, py_mod, py_pow, py_lshift, py_rshift,
@@ -29,6 +29,44 @@ class Typer(NodeTransformer):
     def analysis(self) -> Typedmod:
         self.visit(self.t_ast)
         return self.t_ast
+
+    def assign(self, assign_node: TypedAST, target: Typedexpr, value: Typedexpr):
+        match target:
+            case TypedName(id=name):
+                self.env.assign_variable(assign_node, name, value.abstract_obj.get_obj())
+            case TypedSubscript(value=t_value, slice=slice_):
+                self.assign_subscript(t_value, slice_, value)
+            case TypedAttribute(value=t_value, attr=attr):
+                self.assign_attribute(t_value, attr, value)
+            case TypedTuple(elts=elts):
+                if any(isinstance(elt, TypedStarred) for elt in elts):
+                    raise errors.Mijissou
+                if not isinstance(value, TypedTuple):
+                    raise errors.Mijissou
+                if len(elts) != len(value.elts):
+                    raise errors.Mijissou
+                for i in range(len(elts)):
+                    self.assign(assign_node, elts[i], value.elts[i])
+            case _:
+                raise errors.Mijissou
+
+    def assign_subscript(self, target: Typedexpr, slice_: Typedexpr, value: Typedexpr):
+        if not target.is_builtin:
+            raise errors.Mijissou
+        match slice_:
+            case TypedSlice(lower=lower, upper=upper, step=step):
+                raise errors.Mijissou
+            case _:
+                if isinstance(target, List):
+                    target.special_attr["elt"].get_obj().unification(value)
+                elif isinstance(target, Dict):
+                    target.special_attr["key"].get_obj().unification(slice_)
+                    target.special_attr["value"].get_obj().unification(value)
+                else:
+                    raise errors.Mijissou
+
+    def assign_attribute(self, target: Typedexpr, attr: str, value: Typedexpr):
+        raise errors.Mijissou
 
     def visit_Constant(self, node: TypedConstant) -> TypedConstant:
         match node.value:
@@ -192,3 +230,60 @@ class Typer(NodeTransformer):
         res = py_call(self.env, node.func.abstract_obj.get_obj(), args)
         node.abstract_object = res
         return node
+
+    def visit_IfExp(self, node: TypedIfExp) -> TypedIfExp:
+        self.generic_visit(node)
+        # ToDo: node.testの__bool__を評価する
+        body, orelse = node.body.abstract_obj.get_obj(), node.orelse.abstract_obj.get_obj()
+        body.unification(orelse)
+        node.abstract_object = body.get_obj()
+        return node
+
+    def visit_Attribute(self, node: TypedAttribute) -> TypedAttribute:
+        raise errors.Mijissou
+
+    def visit_NamedExpr(self, node: TypedNamedExpr) -> TypedNamedExpr:
+        self.generic_visit(node)
+        self.assign(node, node.target, node.value)
+        node.abstract_object = node.target.abstract_obj.get_obj()
+        return node
+
+    def visit_Subscript(self, node: TypedSubscript) -> TypedSubscript:
+        self.generic_visit(node)
+        if isinstance(node.slice, TypedSlice):
+            raise errors.Mijissou
+        val = node.value.abstract_obj.get_obj()
+        if not val.is_builtin:
+            raise errors.Mijissou
+
+        if isinstance(val, (List, Tuple)):
+            res = val.special_attr["elt"].get_obj()
+        elif isinstance(val, Dict):
+            val.special_attr["key"].unification(node.slice.value.abstract_obj.get_obj())
+            res = val.special_attr["item"].get_obj()
+        else:
+            raise errors.Mijissou
+
+        node.abstract_object = res
+        return node
+
+    def visit_Slice(self, node: TypedSlice) -> TypedSlice:
+        self.generic_visit(node)
+        res = Slice().create_instance()
+        node.abstract_object = res
+        return node
+
+    def visit_ListComp(self, node: TypedListComp) -> TypedListComp:
+        raise errors.Mijissou
+
+    def visit_SetComp(self, node: TypedSetComp) -> TypedSetComp:
+        raise errors.Mijissou
+
+    def visit_GeneratorExp(self, node: TypedGeneratorExp) -> TypedGeneratorExp:
+        raise errors.Mijissou
+
+    def visit_DictComp(self, node: TypedDictComp) -> TypedDictComp:
+        raise errors.Mijissou
+
+    def visit_comprehension(self, node: Typedcomprehension) -> Typedcomprehension:
+        raise errors.Mijissou

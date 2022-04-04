@@ -219,6 +219,11 @@ class Bool(BuiltinType):
         # ToDo: Intを継承させる
 
 
+class Slice(BuiltinType):
+    def __init__(self):
+        super().__init__()
+
+
 Attr: TypeAlias = dict[str, AbstractObject]
 
 binary_func = Callable[[AbstractObject, AbstractObject], AbstractObject]

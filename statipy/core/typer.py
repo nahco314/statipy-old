@@ -172,3 +172,10 @@ class Typer(NodeTransformer):
             value.abstract_obj.get_obj().unification(first_obj)
         node.abstract_object = first_obj
         return node
+
+    def visit_Compare(self, node: TypedCompare) -> TypedCompare:
+        self.generic_visit(node)
+        # ToDo: __eq__とかの評価をする
+        res = Bool().create_instance()
+        node.abstract_object = res
+        return node

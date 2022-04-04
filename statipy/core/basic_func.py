@@ -80,3 +80,30 @@ def py_inplace_mul(a: AbstractObject, b: AbstractObject) -> AbstractObject:
     # sq.concat?
 
     raise errors.TypeError()
+
+
+def py_negative(o: AbstractObject) -> AbstractObject:
+    f = getattr(o.type, "negative", None)
+    if f is not None:
+        res = f(o)
+        return res
+
+    raise errors.TypeError()
+
+
+def py_positive(o: AbstractObject) -> AbstractObject:
+    f = getattr(o.type, "positive", None)
+    if f is not None:
+        res = f(o)
+        return res
+
+    raise errors.TypeError()
+
+
+def py_invert(o: AbstractObject) -> AbstractObject:
+    f = getattr(o.type, "invert", None)
+    if f is not None:
+        res = f(o)
+        return res
+
+    raise errors.TypeError()

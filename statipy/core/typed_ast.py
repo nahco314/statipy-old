@@ -611,7 +611,7 @@ class Mod(ast.Mod, operator):
 class TypedModule(ast.Module, Typedmod):
     def __init__(self, lineno: int, end_lineno: int, col_offset: int, end_col_offset: int,
                  body: list[Typedstmt], type_ignores: list[ast.TypeIgnore]):
-        super(TypedModule, self).__init__(lineno, end_lineno, col_offset, end_col_offset)
+        super(TypedModule, self).__init__()
         self.body: list[Typedstmt] = body
         self.type_ignores = type_ignores
 

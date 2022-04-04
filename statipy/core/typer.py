@@ -3,9 +3,12 @@ from ast import NodeTransformer
 
 from statipy.core.typed_ast import *
 from statipy.core.node_preprocesser import NodePreprocessor
-from statipy.core.abstract_object import AbstractObject, Int, Str, List, Tuple, Set, Dict, Undefined
+from statipy.core.abstract_object import (AbstractObject,
+                                          Int, Str, List, Tuple, Set, Dict, Bool,
+                                          Undefined)
 
-from statipy.core.basic_func import py_add, py_mul, py_inplace_add, py_inplace_mul
+from statipy.core.basic_func import (py_add, py_mul, py_inplace_add, py_inplace_mul,
+                                     py_negative, py_positive, py_invert)
 
 from statipy.core.environment import Environment
 import statipy.errors as errors
@@ -106,4 +109,21 @@ class Typer(NodeTransformer):
 
     def visit_Expr(self, node: TypedExpr) -> TypedExpr:
         self.generic_visit(node)
+        return node
+
+    def visit_UnaryOp(self, node: TypedUnaryOp) -> TypedUnaryOp:
+        self.generic_visit(node)
+        match node.op:
+            case Not():
+                # ToDo: __bool__ の評価
+                res = Bool().create_instance()
+            case USub():
+                res = py_negative(node.operand.abstract_obj.get_obj())
+            case UAdd():
+                res = py_positive(node.operand.abstract_obj.get_obj())
+            case Invert():
+                res = py_invert(node.operand.abstract_obj.get_obj())
+            case _:
+                raise Exception
+        node.abstract_object = res
         return node

@@ -5,7 +5,7 @@ import statipy.core.typed_ast as t_ast
 from statipy.core.environment import Environment
 from statipy.core.node_preprocesser import NodePreprocessor
 from statipy.core.typer import Typer
-from statipy.core.abstract_object import AbstractObject, Int
+from statipy.core.abstract_object import AbstractObject, Int, Str
 import statipy.errors as errors
 
 from textwrap import dedent
@@ -93,6 +93,9 @@ class TestTyper(unittest.TestCase):
         typer = Typer(code)
         tree = typer.analyze()
 
+        self.assertEqual(typer.env.variables["a"][0].value.get_obj(), Int().create_instance())
+        self.assertEqual(typer.env.variables["b"][0].value.get_obj(), Str().create_instance())
+
     def test_basis_error(self):
         code = dedent("""\
         a = 0
@@ -112,6 +115,10 @@ class TestTyper(unittest.TestCase):
         typer = Typer(code)
         tree = typer.analyze()
 
+        self.assertEqual(typer.env.variables["a"][0].value.get_obj(), Int().create_instance())
+        self.assertEqual(typer.env.variables["b"][0].value.get_obj(), Str().create_instance())
+        self.assertEqual(typer.env.variables["c"][0].value.get_obj(), Str().create_instance())
+
     def test_inplace_op(self):
         code = dedent("""\
         a = 6
@@ -121,3 +128,6 @@ class TestTyper(unittest.TestCase):
         """)
         typer = Typer(code)
         tree = typer.analyze()
+
+        self.assertEqual(typer.env.variables["a"][0].value.get_obj(), Int().create_instance())
+        self.assertEqual(typer.env.variables["b"][0].value.get_obj(), Str().create_instance())

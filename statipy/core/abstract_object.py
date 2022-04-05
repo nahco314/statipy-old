@@ -68,6 +68,10 @@ class AbstractObject:
             # ToDo
             return "???"
 
+    def __eq__(self, other):
+        # ToDO: これどうすれば？
+        return self.get_type() is other.get_type()
+
 
 class Undefined(AbstractObject):
     defined = False

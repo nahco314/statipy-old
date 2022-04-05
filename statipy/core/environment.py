@@ -31,6 +31,8 @@ class Environment:
         var.assign(node, value)
 
     def get_variable(self, node: t_ast.TypedAST, name: str) -> AbstractObject:
+        if not self.variables[name]:
+            raise errors.TypeError
         res = self.variables[name][-1].reference(node)
         return res
 
@@ -57,8 +59,10 @@ class Variable:
                  definition_location: t_ast.TypedAST,
                  assign_locations: list[t_ast.TypedAST],
                  reference_locations: list[t_ast.TypedAST],
-                 value: AbstractObject = Undefined()
+                 value: AbstractObject = None
                  ):
+        if value is None:
+            value = Undefined()
         self.name_candidates = name_candidates
         self.scope = scope
         self.definition_location = definition_location

@@ -127,7 +127,9 @@ class Typedexpr(ast.expr, TypedAST):
         self.end_lineno = end_lineno
         self.col_offset = col_offset
         self.end_col_offset = end_col_offset
-        self.abstract_obj: Optional[AbstractObject] = None
+        self.abstract_object: Optional[AbstractObject] = None
+
+        self._fields = self._fields + ("abstract_object",)
 
 
 class TypedAttribute(ast.Attribute, Typedexpr):

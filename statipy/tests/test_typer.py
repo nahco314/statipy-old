@@ -4,7 +4,9 @@ import ast
 import statipy.core.typed_ast as t_ast
 from statipy.core.environment import Environment
 from statipy.core.node_preprocesser import NodePreprocessor
+from statipy.core.typer import Typer
 from statipy.core.abstract_object import AbstractObject, Int
+import statipy.errors as errors
 
 from textwrap import dedent
 
@@ -24,7 +26,7 @@ class TestEnvironment(unittest.TestCase):
         """)
         tree = ast.parse(code)
         preprocesser = NodePreprocessor(code)
-        preprocessed_tree = preprocesser.visit(tree)
+        preprocessed_tree = preprocesser.make_ast()
         environment = Environment(preprocessed_tree)
 
         assert isinstance(preprocessed_tree, t_ast.TypedModule)
@@ -79,3 +81,24 @@ class TestEnvironment(unittest.TestCase):
         environment.step_out()
         environment.step_out()
         self.assertEqual(environment.current_scope.p_node, preprocessed_tree)
+
+
+class TestTyper(unittest.TestCase):
+    def test_basis(self):
+        code = dedent("""\
+        a = 0
+        b = "hello"
+        a += a + 2
+        """)
+        typer = Typer(code)
+        tree = typer.analyze()
+
+    def test_basis_error(self):
+        code = dedent("""\
+        a = 0
+        b = "hello"
+        a = b
+        """)
+        typer = Typer(code)
+        with self.assertRaises(errors.TypingError):
+            tree = typer.analyze()

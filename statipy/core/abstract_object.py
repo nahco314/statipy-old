@@ -51,10 +51,10 @@ class AbstractObject:
 
         else:
             for name in {*self.attr, *target.attr}:
-                self.attr[name].unification(target.attr[name])
+                self.attr[name].get_obj().unification(target.attr[name].get_obj())
 
             for name in {*self.special_attr, *target.special_attr}:
-                self.special_attr[name].unification(target.special_attr[name])
+                self.special_attr[name].get_obj().unification(target.special_attr[name].get_obj())
 
         self.replace(target)
 
@@ -201,12 +201,12 @@ class Int(BuiltinType):
     def __init__(self):
         super().__init__()
 
-        def int_bin_func(a: AbstractObject, b: AbstractType) -> AbstractObject:
+        def int_bin_func(env, a: AbstractObject, b: AbstractType) -> AbstractObject:
             if a.type.is_subtype(Int()) and b.type.is_subtype(Int()):
                 return Int().create_instance()
             return py_not_implemented
 
-        def int_int(a: AbstractObject) -> AbstractObject:
+        def int_int(env, a: AbstractObject) -> AbstractObject:
             return Int().create_instance()
 
         self.add = int_bin_func

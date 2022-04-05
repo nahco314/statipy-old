@@ -9,9 +9,13 @@ from statipy.core.abstract_object import (AbstractObject,
 
 from statipy.core.basic_func import (py_add, py_sub, py_mul, py_div, py_floordiv, py_mod, py_pow, py_lshift, py_rshift,
                                      py_or, py_xor, py_and, py_matmul,
-                                     py_inplace_add, py_inplace_mul,
+                                     py_inplace_add, py_inplace_sub, py_inplace_mul, py_inplace_div,
+                                     py_inplace_floordiv, py_inplace_mod, py_inplace_pow, py_inplace_lshift,
+                                     py_inplace_rshift, py_inplace_or, py_inplace_xor, py_inplace_and,
+                                     py_inplace_matmul,
                                      py_call,
                                      py_getattr, py_setattr, py_getattr_string, py_setattr_string,
+                                     py_get_iter, py_iter_next,
                                      py_negative, py_positive, py_invert)
 
 from statipy.core.environment import Environment
@@ -31,27 +35,20 @@ class Typer(NodeTransformer):
         self.visit(self.t_ast)
         return self.t_ast
 
-    def assign(self, assign_node: TypedAST, target: Typedexpr, value: Typedexpr):
+    def assign(self, assign_node: TypedAST, target: Typedexpr, value: AbstractObject):
         match target:
             case TypedName(id=name):
-                self.env.assign_variable(assign_node, name, value.abstract_obj.get_obj())
+                self.env.assign_variable(assign_node, name, value)
             case TypedSubscript(value=t_value, slice=slice_):
                 self.assign_subscript(t_value, slice_, value)
             case TypedAttribute(value=t_value, attr=attr):
                 self.assign_attribute(t_value, attr, value)
             case TypedTuple(elts=elts):
-                if any(isinstance(elt, TypedStarred) for elt in elts):
-                    raise errors.Mijissou
-                if not isinstance(value, TypedTuple):
-                    raise errors.Mijissou
-                if len(elts) != len(value.elts):
-                    raise errors.Mijissou
-                for i in range(len(elts)):
-                    self.assign(assign_node, elts[i], value.elts[i])
+                raise errors.Mijissou
             case _:
                 raise errors.Mijissou
 
-    def assign_subscript(self, target: Typedexpr, slice_: Typedexpr, value: Typedexpr):
+    def assign_subscript(self, target: Typedexpr, slice_: Typedexpr, value: AbstractObject):
         if not target.is_builtin:
             raise errors.Mijissou
         match slice_:
@@ -66,7 +63,7 @@ class Typer(NodeTransformer):
                 else:
                     raise errors.Mijissou
 
-    def assign_attribute(self, target: Typedexpr, attr: str, value: Typedexpr):
+    def assign_attribute(self, target: Typedexpr, attr: str, value: AbstractObject):
         raise errors.Mijissou
 
     def visit_Constant(self, node: TypedConstant) -> TypedConstant:
@@ -253,7 +250,7 @@ class Typer(NodeTransformer):
 
     def visit_NamedExpr(self, node: TypedNamedExpr) -> TypedNamedExpr:
         self.generic_visit(node)
-        self.assign(node, node.target, node.value)
+        self.assign(node, node.target, node.value.abstract_obj.get_obj())
         node.abstract_object = node.target.abstract_obj.get_obj()
         return node
 
@@ -297,3 +294,210 @@ class Typer(NodeTransformer):
 
     def visit_comprehension(self, node: Typedcomprehension) -> Typedcomprehension:
         raise errors.Mijissou
+
+    def visit_Assign(self, node: TypedAssign) -> TypedAssign:
+        self.generic_visit(node)
+        for target in node.targets:
+            self.assign(node, target, node.value.abstract_obj.get_obj())
+        node.abstract_object = node.value.abstract_obj.get_obj()
+        return node
+
+    def visit_AnnAssign(self, node: TypedAnnAssign) -> TypedAnnAssign:
+        self.generic_visit(node)
+        # annotation を考慮する機能はあると嬉しそうだよね
+        self.assign(node, node.target, node.value.abstract_obj.get_obj())
+        node.abstract_object = node.target.abstract_obj.get_obj()
+        return node
+
+    def visit_AugAssign(self, node: TypedAugAssign) -> TypedAugAssign:
+        self.generic_visit(node)
+        match node.op:
+            case Add():
+                res = py_inplace_add(self.env, node.target.abstract_obj.get_obj(), node.value.abstract_obj.get_obj())
+            case Sub():
+                res = py_inplace_sub(self.env, node.target.abstract_obj.get_obj(), node.value.abstract_obj.get_obj())
+            case Mult():
+                res = py_inplace_mul(self.env, node.target.abstract_obj.get_obj(), node.value.abstract_obj.get_obj())
+            case Div():
+                res = py_inplace_div(self.env, node.target.abstract_obj.get_obj(), node.value.abstract_obj.get_obj())
+            case FloorDiv():
+                res = py_inplace_floordiv(self.env, node.target.abstract_obj.get_obj(), node.value.abstract_obj.get_obj())
+            case Mod():
+                res = py_inplace_mod(self.env, node.target.abstract_obj.get_obj(), node.value.abstract_obj.get_obj())
+            case Pow():
+                res = py_inplace_pow(self.env, node.target.abstract_obj.get_obj(), node.value.abstract_obj.get_obj())
+            case LShift():
+                res = py_inplace_lshift(self.env, node.target.abstract_obj.get_obj(), node.value.abstract_obj.get_obj())
+            case RShift():
+                res = py_inplace_rshift(self.env, node.target.abstract_obj.get_obj(), node.value.abstract_obj.get_obj())
+            case BitOr():
+                res = py_inplace_or(self.env, node.target.abstract_obj.get_obj(), node.value.abstract_obj.get_obj())
+            case BitXor():
+                res = py_inplace_xor(self.env, node.target.abstract_obj.get_obj(), node.value.abstract_obj.get_obj())
+            case BitAnd():
+                res = py_inplace_and(self.env, node.target.abstract_obj.get_obj(), node.value.abstract_obj.get_obj())
+            case MatMult():
+                res = py_inplace_matmul(self.env, node.target.abstract_obj.get_obj(), node.value.abstract_obj.get_obj())
+            case _:
+                raise Exception
+
+        self.env.assign_variable(node, node.target.id, res)
+        node.abstract_object = res
+        return node
+
+    def visit_Raise(self, node: TypedRaise) -> TypedRaise:
+        raise errors.Mijissou
+
+    def visit_Assert(self, node: TypedAssert) -> TypedAssert:
+        raise errors.Mijissou
+
+    def visit_Delete(self, node: TypedDelete) -> TypedDelete:
+        raise errors.Mijissou  # あんま使わんからな
+
+    def visit_Pass(self, node: TypedPass) -> TypedPass:
+        return node
+
+    def visit_Import(self, node: TypedImport) -> TypedImport:
+        raise errors.Mijissou
+
+    def visit_ImportFrom(self, node: TypedImportFrom) -> TypedImportFrom:
+        raise errors.Mijissou
+
+    def visit_alias(self, node: Typedalias) -> Typedalias:
+        raise errors.Mijissou
+
+    def visit_If(self, node: TypedIf) -> TypedIf:
+        test = self.visit(node.test)  # __bool__ を評価しないといけない
+
+        self.env.step_in(node, node.body)
+        for stmt in node.body:
+            self.visit(stmt)
+        self.env.step_out()
+
+        self.env.step_in(node, node.orelse)
+        for stmt in node.orelse:
+            self.visit(stmt)
+        self.env.step_out()
+
+        return node
+
+    def visit_For(self, node: TypedFor) -> TypedFor:
+        self.env.step_in(node, node.body)
+        iter_obj = py_get_iter(self.env, node.iter.abstract_obj.get_obj())
+        item = py_iter_next(self.env, iter_obj)
+        self.assign(node, node.target, item)
+        for stmt in node.body:
+            self.visit(stmt)
+        self.env.step_out()
+
+        self.env.step_in(node, node.orelse)
+        for stmt in node.orelse:
+            self.visit(stmt)
+        self.env.step_out()
+
+        return node
+
+    def visit_While(self, node: TypedWhile) -> TypedWhile:
+        test = self.visit(node.test)  # __bool__ を評価しないといけない
+
+        self.env.step_in(node, node.body)
+        for stmt in node.body:
+            self.visit(stmt)
+        self.env.step_out()
+
+        self.env.step_in(node, node.orelse)
+        for stmt in node.orelse:
+            self.visit(stmt)
+        self.env.step_out()
+
+        return node
+
+    def visit_Break(self, node: TypedBreak) -> TypedBreak:
+        return node
+
+    def visit_Continue(self, node: TypedContinue) -> TypedContinue:
+        return node
+
+    def visit_Try(self, node: TypedTry) -> TypedTry:
+        raise errors.Mijissou
+
+    def visit_ExceptHandler(self, node: TypedExceptHandler) -> TypedExceptHandler:
+        raise errors.Mijissou
+
+    def visit_With(self, node: TypedWith) -> TypedWith:
+        raise errors.Mijissou
+
+    def visit_withitem(self, node: Typedwithitem) -> Typedwithitem:
+        raise errors.Mijissou
+
+    def visit_Match(self, node: TypedMatch) -> TypedMatch:
+        raise errors.Mijissou
+
+    def visit_match_case(self, node: Typedmatch_case) -> Typedmatch_case:
+        raise errors.Mijissou
+
+    def visit_MatchValue(self, node: TypedMatchValue) -> TypedMatchValue:
+        raise errors.Mijissou
+
+    def visit_MatchSingleton(self, node: TypedMatchSingleton) -> TypedMatchSingleton:
+        raise errors.Mijissou
+
+    def visit_MatchSequence(self, node: TypedMatchSequence) -> TypedMatchSequence:
+        raise errors.Mijissou
+
+    def visit_MatchStar(self, node: TypedMatchStar) -> TypedMatchStar:
+        raise errors.Mijissou
+
+    def visit_MatchMapping(self, node: TypedMatchMapping) -> TypedMatchMapping:
+        raise errors.Mijissou
+
+    def visit_MatchClass(self, node: TypedMatchClass) -> TypedMatchClass:
+        raise errors.Mijissou
+
+    def visit_MatchAs(self, node: TypedMatchAs) -> TypedMatchAs:
+        raise errors.Mijissou
+
+    def visit_MatchOr(self, node: TypedMatchOr) -> TypedMatchOr:
+        raise errors.Mijissou
+
+    def visit_FunctionDef(self, node: TypedFunctionDef) -> TypedFunctionDef:
+        raise errors.Mijissou
+
+    def visit_Lambda(self, node: TypedLambda) -> TypedLambda:
+        raise errors.Mijissou
+
+    def visit_arguments(self, node: Typedarguments) -> Typedarguments:
+        raise errors.Mijissou
+
+    def visit_arg(self, node: Typedarg) -> Typedarg:
+        raise errors.Mijissou
+
+    def visit_Return(self, node: TypedReturn) -> TypedReturn:
+        raise errors.Mijissou
+
+    def visit_Yield(self, node: TypedYield) -> TypedYield:
+        raise errors.Mijissou
+
+    def visit_YieldFrom(self, node: TypedYieldFrom) -> TypedYieldFrom:
+        raise errors.Mijissou
+
+    def visit_Global(self, node: TypedGlobal) -> TypedGlobal:
+        raise errors.Mijissou
+
+    def visit_Nonlocal(self, node: TypedNonlocal) -> TypedNonlocal:
+        raise errors.Mijissou
+
+    def visit_ClassDef(self, node: TypedClassDef) -> TypedClassDef:
+        raise errors.Mijissou
+
+    #  def visit_AsyncFunctionDef(self, node: TypedAsyncFunctionDef) -> TypedAsyncFunctionDef:
+    #      raise errors.Mijissou
+
+    #  def visit_Await(self, node: TypedAwait) -> TypedAwait:
+    #      raise errors.Mijissou
+
+    #  def visit_AsyncFor(self, node: TypedAsyncFor) -> TypedAsyncFor:
+    #      raise errors.Mijissou
+
+    #  def visit_AsyncWith(self, node: TypedAsyncWith) -> TypedAsyncWith:
+    #      raise errors.Mijissou

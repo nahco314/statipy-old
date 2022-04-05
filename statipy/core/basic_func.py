@@ -1,4 +1,5 @@
-from statipy.core.abstract_object import AbstractObject, py_not_implemented
+from statipy.core.abstract_object import AbstractObject, Dict, Iterator, py_not_implemented, \
+    binary_func, binary_i_func, unary_func
 import statipy.errors as errors
 from statipy.core.environment import Environment
 from typing import TypeAlias, Callable, Optional
@@ -40,11 +41,6 @@ def UNARY_FUNC(method_name: str):
             return res
 
         raise errors.TypeError()
-
-
-binary_func: TypeAlias = Callable[[Environment, AbstractObject, AbstractObject], AbstractObject]
-binary_i_func: TypeAlias = Callable[[Environment, AbstractObject, AbstractObject], AbstractObject]
-unary_func: TypeAlias = Callable[[Environment, AbstractObject], AbstractObject]
 
 
 def index_check(obj: AbstractObject) -> bool:
@@ -134,6 +130,37 @@ def py_setattr(env: Environment, v: AbstractObject, name: str, value: AbstractOb
     raise errors.Mijissou
 
 
+def py_sequence_check(s: AbstractObject) -> bool:
+    if s.type.is_subtype(Dict()):
+        return False
+    return getattr(s.type, "getitem", None) is not None
+
+
+def py_seq_iter_new(env: Environment, s: AbstractObject) -> AbstractObject:
+    it = Iterator().create_instance()
+    it.seq = s
+    return it
+
+
+def py_get_iter(env: Environment, o: AbstractObject) -> AbstractObject:
+    f = getattr(o.get_type(), "iter", None)
+    if f is None:
+        if py_sequence_check(o):
+            return py_seq_iter_new(env, o)
+        raise errors.TypeError
+    else:
+        res = f(env, o)
+        return res
+
+
+def py_iter_next(env: Environment, iter_: AbstractObject) -> AbstractObject:
+    result = iter_.get_type().next(env, iter_)
+    if result is None:
+        # StopIteration?
+        raise Exception
+    return result
+
+
 py_add: binary_func = BINARY_FUNC("add")  # sq.concat?
 py_sub: binary_func = BINARY_FUNC("sub")
 py_mul: binary_func = BINARY_FUNC("mul")  # sq.repeat?
@@ -158,9 +185,9 @@ py_inplace_mod: binary_i_func = INPLACE_BINARY_FUNC("mod")
 py_inplace_pow: binary_i_func = INPLACE_BINARY_FUNC("pow")
 py_inplace_lshift: binary_i_func = INPLACE_BINARY_FUNC("lshift")
 py_inplace_rshift: binary_i_func = INPLACE_BINARY_FUNC("rshift")
-py_inplace_or: binary_i_func = INPLACE_BINARY_FUNC("or")
+py_inplace_or: binary_i_func = INPLACE_BINARY_FUNC("or_")
 py_inplace_xor: binary_i_func = INPLACE_BINARY_FUNC("xor")
-py_inplace_and: binary_i_func = INPLACE_BINARY_FUNC("and")
+py_inplace_and: binary_i_func = INPLACE_BINARY_FUNC("and_")
 py_inplace_matmul: binary_i_func = INPLACE_BINARY_FUNC("matmul")
 
 

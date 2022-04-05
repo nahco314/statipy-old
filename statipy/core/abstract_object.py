@@ -96,9 +96,9 @@ class AbstractType(AbstractObject):
         ("pow", ["__pow__", "__rpow__"]),
         ("lshift", ["__lshift__", "__rlshift__"]),
         ("rshift", ["__rshift__", "__rrshift__"]),
-        ("or", ["__or__", "__ror__"]),
+        ("or_", ["__or__", "__ror__"]),
         ("xor", ["__xor__", "__rxor__"]),
-        ("and", ["__and__", "__rand__"]),
+        ("and_", ["__and__", "__rand__"]),
         ("matmul", ["__matmul__", "__rmatmul__"]),
         ("negative", ["__neg__"]),
         ("positive", ["__pos__"]),
@@ -107,6 +107,8 @@ class AbstractType(AbstractObject):
         ("setattro", ["__setattr__"]),
         ("getattr", []),
         ("setattr", []),
+        ("iter", ["__iter__"]),
+        ("next", ["__next__"]),
     )
 
     def __init__(self):
@@ -115,6 +117,27 @@ class AbstractType(AbstractObject):
         self.repr: Optional[repr_func] = None
         self.str: Optional[repr_func] = None
         self.add: Optional[binary_func] = None
+        self.sub: Optional[binary_func] = None
+        self.mul: Optional[binary_func] = None
+        self.div: Optional[binary_func] = None
+        self.floordiv: Optional[binary_func] = None
+        self.mod: Optional[binary_func] = None
+        self.pow: Optional[binary_func] = None
+        self.lshift: Optional[binary_func] = None
+        self.rshift: Optional[binary_func] = None
+        self.or_: Optional[binary_func] = None
+        self.xor: Optional[binary_func] = None
+        self.and_: Optional[binary_func] = None
+        self.matmul: Optional[binary_func] = None
+        self.negative: Optional[unary_func] = None
+        self.positive: Optional[unary_func] = None
+        self.invert: Optional[unary_func] = None
+        self.getattro: Optional[getattr_func] = None
+        self.setattro: Optional[setattr_func] = None
+        self.getattr: Optional[getattr_s_func] = None
+        self.setattr: Optional[setattr_s_func] = None
+        self.iter: Optional[iter_func] = None
+        self.next: Optional[next_func] = None
 
     def unification(self, target: AbstractObject):
         # ここはこのままじゃだめそう
@@ -231,9 +254,25 @@ class Slice(BuiltinType):
         super().__init__()
 
 
+class Iterator(BuiltinType):
+    def __init__(self):
+        super().__init__()
+
+        self.seq = Undefined()
+
+
 Attr: TypeAlias = dict[str, AbstractObject]
 
-binary_func = Callable[[AbstractObject, AbstractObject], AbstractObject]
-repr_func = Callable[[AbstractObject], Str]
+
+binary_func: TypeAlias = Callable[["Environment", AbstractObject, AbstractObject], AbstractObject]
+binary_i_func: TypeAlias = Callable[["Environment", AbstractObject, AbstractObject], AbstractObject]
+unary_func: TypeAlias = Callable[["Environment", AbstractObject], AbstractObject]
+repr_func: TypeAlias = Callable[["Environment", AbstractObject], Str]
+getattr_s_func: TypeAlias = Callable[["Environment", AbstractObject, str], AbstractObject]
+setattr_s_func: TypeAlias = Callable[["Environment", AbstractObject, str, AbstractObject], AbstractObject]
+getattr_func: TypeAlias = Callable[["Environment", AbstractObject, AbstractObject], AbstractObject]
+setattr_func: TypeAlias = Callable[["Environment", AbstractObject, AbstractObject, AbstractObject], AbstractObject]
+iter_func: TypeAlias = Callable[["Environment", AbstractObject], AbstractObject]
+next_func: TypeAlias = Callable[["Environment", AbstractObject], AbstractObject]
 
 py_not_implemented = NotImplementedType().create_instance()

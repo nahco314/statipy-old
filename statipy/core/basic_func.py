@@ -1,5 +1,5 @@
 from statipy.core.abstract_object import AbstractObject, Dict, Iterator, py_not_implemented, \
-    binary_func, binary_i_func, unary_func
+    binary_func, ternary_func, unary_func, ssizeargfunc
 import statipy.errors as errors
 from statipy.core.environment import Environment
 from typing import TypeAlias, Callable, Optional
@@ -28,6 +28,26 @@ def INPLACE_BINARY_FUNC(method_name: str):
         res = binary_i_op1(env, a, b, "inplace_" + method_name, method_name)
         if res != py_not_implemented:
             return res
+
+        raise errors.TypeError()
+    return func
+
+
+def TERNARY_FUNC(method_name: str):
+    def func(env: Environment, a: AbstractObject, b: AbstractObject, c: Optional[AbstractObject]) -> AbstractObject:
+        func = getattr(a.get_type(), method_name, None)
+        if func is not None:
+            return func(env, a, b, c)
+
+        raise errors.TypeError()
+    return func
+
+
+def INPLACE_TERNARY_FUNC(method_name: str):
+    def func(env: Environment, a: AbstractObject, b: AbstractObject, c: Optional[AbstractObject]) -> AbstractObject:
+        func = getattr(a.get_type(), method_name, None)
+        if func is not None:
+            return func(env, a, b, c)
 
         raise errors.TypeError()
     return func
@@ -161,13 +181,52 @@ def py_iter_next(env: Environment, iter_: AbstractObject) -> AbstractObject:
     return result
 
 
-py_add: binary_func = BINARY_FUNC("add")  # sq.concat?
+def py_add(env: Environment, a: AbstractObject, b: AbstractObject) -> AbstractObject:
+    res = binary_op1(env, a, b, "add")
+
+    if res == py_not_implemented and a.get_type().concat is not None:
+        res = a.get_type().concat(env, a, b)
+
+    if res != py_not_implemented:
+        return res
+
+    raise errors.TypeError()
+
+
+def repeat(env: Environment, repeatfunc: ssizeargfunc, seq: AbstractObject, n: AbstractObject) -> AbstractObject:
+    if index_check(n):
+        count = 0  # index の評価
+    else:
+        raise errors.TypingError
+
+    res = repeatfunc(env, seq, count)
+    return res
+
+
+def py_mul(env: Environment, a: AbstractObject, b: AbstractObject) -> AbstractObject:
+    res = binary_op1(env, a, b, "mul")
+
+    if res == py_not_implemented:
+        ma = getattr(a.get_type(), "repeat", None)
+        mb = getattr(b.get_type(), "repeat", None)
+        if ma is not None:
+            res = repeat(env, ma, a, b)
+        elif mb is not None:
+            res = repeat(env, mb, b, a)
+
+    if res != py_not_implemented:
+        return res
+
+    raise errors.TypeError()
+
+
+# py_add
 py_sub: binary_func = BINARY_FUNC("sub")
-py_mul: binary_func = BINARY_FUNC("mul")  # sq.repeat?
+# py_mul
 py_div: binary_func = BINARY_FUNC("div")
 py_floordiv: binary_func = BINARY_FUNC("floordiv")
 py_mod: binary_func = BINARY_FUNC("mod")
-py_pow: binary_func = BINARY_FUNC("pow")
+py_pow: ternary_func = BINARY_FUNC("pow")
 py_lshift: binary_func = BINARY_FUNC("lshift")
 py_rshift: binary_func = BINARY_FUNC("rshift")
 py_or: binary_func = BINARY_FUNC("or")
@@ -176,19 +235,48 @@ py_and: binary_func = BINARY_FUNC("and")
 py_matmul: binary_func = BINARY_FUNC("matmul")
 
 
-py_inplace_add: binary_i_func = INPLACE_BINARY_FUNC("add")  # sq.concat?
-py_inplace_sub: binary_i_func = INPLACE_BINARY_FUNC("sub")
-py_inplace_mul: binary_i_func = INPLACE_BINARY_FUNC("mul")  # sq.repeat?
-py_inplace_div: binary_i_func = INPLACE_BINARY_FUNC("div")
-py_inplace_floordiv: binary_i_func = INPLACE_BINARY_FUNC("floordiv")
-py_inplace_mod: binary_i_func = INPLACE_BINARY_FUNC("mod")
-py_inplace_pow: binary_i_func = INPLACE_BINARY_FUNC("pow")
-py_inplace_lshift: binary_i_func = INPLACE_BINARY_FUNC("lshift")
-py_inplace_rshift: binary_i_func = INPLACE_BINARY_FUNC("rshift")
-py_inplace_or: binary_i_func = INPLACE_BINARY_FUNC("or_")
-py_inplace_xor: binary_i_func = INPLACE_BINARY_FUNC("xor")
-py_inplace_and: binary_i_func = INPLACE_BINARY_FUNC("and_")
-py_inplace_matmul: binary_i_func = INPLACE_BINARY_FUNC("matmul")
+def py_inplace_add(env: Environment, a: AbstractObject, b: AbstractObject) -> AbstractObject:
+    res = binary_op1(env, a, b, "inplace_add")
+
+    if res == py_not_implemented and a.get_type().inplace_concat is not None:
+        res = a.get_type().concat(env, a, b)
+
+    if res != py_not_implemented:
+        return res
+
+    raise errors.TypeError()
+
+
+def py_inplace_mul(env: Environment, a: AbstractObject, b: AbstractObject) -> AbstractObject:
+    res = binary_op1(env, a, b, "inplace_mul")
+
+    if res == py_not_implemented:
+        ma = getattr(a.get_type(), "inplace_repeat", None)
+        mb = getattr(b.get_type(), "inplace_repeat", None)
+        if ma is not None:
+            res = repeat(env, ma, a, b)
+        elif mb is not None:
+            res = repeat(env, mb, b, a)
+
+    if res != py_not_implemented:
+        return res
+
+    raise errors.TypeError()
+
+
+# py_inplace_add
+py_inplace_sub: binary_func = INPLACE_BINARY_FUNC("sub")
+# py_inplace_mul
+py_inplace_div: binary_func = INPLACE_BINARY_FUNC("div")
+py_inplace_floordiv: binary_func = INPLACE_BINARY_FUNC("floordiv")
+py_inplace_mod: binary_func = INPLACE_BINARY_FUNC("mod")
+py_inplace_pow: ternary_func = INPLACE_BINARY_FUNC("pow")
+py_inplace_lshift: binary_func = INPLACE_BINARY_FUNC("lshift")
+py_inplace_rshift: binary_func = INPLACE_BINARY_FUNC("rshift")
+py_inplace_or: binary_func = INPLACE_BINARY_FUNC("or_")
+py_inplace_xor: binary_func = INPLACE_BINARY_FUNC("xor")
+py_inplace_and: binary_func = INPLACE_BINARY_FUNC("and_")
+py_inplace_matmul: binary_func = INPLACE_BINARY_FUNC("matmul")
 
 
 py_negative: unary_func = UNARY_FUNC("negative")

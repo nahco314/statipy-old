@@ -102,3 +102,22 @@ class TestTyper(unittest.TestCase):
         typer = Typer(code)
         with self.assertRaises(errors.TypingError):
             tree = typer.analyze()
+
+    def test_binary_op(self):
+        code = dedent("""\
+        a = 1 + 2 * 3
+        b = "a" + "b"
+        c = a * b
+        """)
+        typer = Typer(code)
+        tree = typer.analyze()
+
+    def test_inplace_op(self):
+        code = dedent("""\
+        a = 6
+        a //= 2
+        b = "a"
+        b *= a
+        """)
+        typer = Typer(code)
+        tree = typer.analyze()

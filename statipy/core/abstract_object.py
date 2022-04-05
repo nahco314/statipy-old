@@ -116,26 +116,53 @@ class AbstractType(AbstractObject):
 
         self.repr: Optional[repr_func] = None
         self.str: Optional[repr_func] = None
+
         self.add: Optional[binary_func] = None
         self.sub: Optional[binary_func] = None
         self.mul: Optional[binary_func] = None
         self.div: Optional[binary_func] = None
         self.floordiv: Optional[binary_func] = None
         self.mod: Optional[binary_func] = None
-        self.pow: Optional[binary_func] = None
+        self.pow: Optional[ternary_func] = None
         self.lshift: Optional[binary_func] = None
         self.rshift: Optional[binary_func] = None
         self.or_: Optional[binary_func] = None
         self.xor: Optional[binary_func] = None
         self.and_: Optional[binary_func] = None
         self.matmul: Optional[binary_func] = None
+
+        self.inplace_add: Optional[binary_func] = None
+        self.inplace_sub: Optional[binary_func] = None
+        self.inplace_mul: Optional[binary_func] = None
+        self.inplace_div: Optional[binary_func] = None
+        self.inplace_floordiv: Optional[binary_func] = None
+        self.inplace_mod: Optional[binary_func] = None
+        self.inplace_pow: Optional[ternary_func] = None
+        self.inplace_lshift: Optional[binary_func] = None
+        self.inplace_rshift: Optional[binary_func] = None
+        self.inplace_or_: Optional[binary_func] = None
+        self.inplace_xor: Optional[binary_func] = None
+        self.inplace_and_: Optional[binary_func] = None
+        self.inplace_matmul: Optional[binary_func] = None
+
+        self.length: Optional[unary_func] = None
+        self.concat: Optional[binary_func] = None
+        self.repeat: Optional[ssizeargfunc] = None
+        self.get_item: Optional[ssizeargfunc] = None
+        self.ass_item: Optional[ssizeargfunc] = None
+        self.contains: Optional[binary_func] = None
+        self.inplace_concat: Optional[binary_func] = None
+        self.inplace_repeat: Optional[ssizeargfunc] = None
+
         self.negative: Optional[unary_func] = None
         self.positive: Optional[unary_func] = None
         self.invert: Optional[unary_func] = None
+
         self.getattro: Optional[getattr_func] = None
         self.setattro: Optional[setattr_func] = None
         self.getattr: Optional[getattr_s_func] = None
         self.setattr: Optional[setattr_s_func] = None
+
         self.iter: Optional[iter_func] = None
         self.next: Optional[next_func] = None
 
@@ -188,21 +215,69 @@ class NotImplementedType(BuiltinType):
 
 
 class Str(BuiltinType):
+    """str type
+    参考: CPython/Objects/unicodeobject.c
+    """
     def __init__(self):
         super().__init__()
 
-        def str_mul(str_: AbstractObject, len_: AbstractObject):
+        def str_concat(env, a: AbstractObject, b: AbstractObject) -> AbstractObject:
+            if not a.get_type().is_subtype(Str()):
+                return py_not_implemented
+            if not b.get_type().is_subtype(Str()):
+                return py_not_implemented
+
             return Str().create_instance()
 
-        self.mul = str_mul
+        def str_repeat(env, str_: AbstractObject, len_: int):
+            if not str_.get_type().is_subtype(Str()):
+                return py_not_implemented
+
+            return Str().create_instance()
+
+        def str_getitem(env, self: AbstractObject, index: int):
+            if not self.get_type().is_subtype(Str()):
+                return py_not_implemented
+
+            return Str().create_instance()
+
+        def str_contains(env, str_: AbstractObject, substr: AbstractObject):
+            if not str_.get_type().is_subtype(Str()):
+                return py_not_implemented
+            if not substr.get_type().is_subtype(Str()):
+                return py_not_implemented
+
+            return Bool().create_instance()
+
+        self.length = len_func
+        self.concat = str_concat
+        self.repeat = str_repeat
+        self.inplace_concat = str_concat
+        self.inplace_repeat = str_repeat
+        self.get_item = str_getitem
+        self.contains = str_contains
 
 
 class Int(BuiltinType):
+    """int type
+    参考: CPython/Objects/longobject.c
+    """
+
     def __init__(self):
         super().__init__()
 
         def int_bin_func(env, a: AbstractObject, b: AbstractType) -> AbstractObject:
-            if a.type.is_subtype(Int()) and b.type.is_subtype(Int()):
+            if a.get_type().is_subtype(Int()) and b.type.is_subtype(Int()):
+                return Int().create_instance()
+            return py_not_implemented
+
+        def true_div(env, a: AbstractObject, b: AbstractObject) -> AbstractObject:
+            if a.get_type().is_subtype(Int()) and b.type.is_subtype(Int()):
+                return Float().create_instance()
+            return py_not_implemented
+
+        def pow_func(env, a: AbstractObject, b: AbstractObject, c: Optional[AbstractObject]) -> AbstractObject:
+            if a.get_type().is_subtype(Int()) and b.type.is_subtype(Int()) and (c is None or c.type.is_subtype(Int())):
                 return Int().create_instance()
             return py_not_implemented
 
@@ -210,7 +285,41 @@ class Int(BuiltinType):
             return Int().create_instance()
 
         self.add = int_bin_func
+        self.sub = int_bin_func
+        self.mul = int_bin_func
+        self.div = true_div
+        self.floordiv = int_bin_func
+        self.mod = int_bin_func
+        self.pow = int_bin_func
+        self.lshift = int_bin_func
+        self.rshift = int_bin_func
+        self.or_ = int_bin_func
+        self.xor = int_bin_func
+        self.and_ = int_bin_func
+        # matmul is not implemented
+        self.inplace_add = int_bin_func
+        self.inplace_sub = int_bin_func
+        self.inplace_mul = int_bin_func
+        self.inplace_div = true_div
+        self.inplace_floordiv = int_bin_func
+        self.inplace_mod = int_bin_func
+        self.inplace_pow = int_bin_func
+        self.inplace_lshift = int_bin_func
+        self.inplace_rshift = int_bin_func
+        self.inplace_or_ = int_bin_func
+        self.inplace_xor = int_bin_func
+        self.inplace_and_ = int_bin_func
+        # matmul is not implemented
+
+        self.negative = int_int
+        self.positive = int_int
+        self.invert = int_int
         self.index = int_int
+
+
+class Float(BuiltinType):
+    def __init__(self):
+        super().__init__()
 
 
 class List(BuiltinType):
@@ -265,14 +374,22 @@ Attr: TypeAlias = dict[str, AbstractObject]
 
 
 binary_func: TypeAlias = Callable[["Environment", AbstractObject, AbstractObject], AbstractObject]
-binary_i_func: TypeAlias = Callable[["Environment", AbstractObject, AbstractObject], AbstractObject]
+ternary_func: TypeAlias = Callable[["Environment", AbstractObject, AbstractObject, Optional[AbstractObject]], AbstractObject]
 unary_func: TypeAlias = Callable[["Environment", AbstractObject], AbstractObject]
+ssizeargfunc: TypeAlias = Callable[["Environment", AbstractObject, int], AbstractObject]
+
 repr_func: TypeAlias = Callable[["Environment", AbstractObject], Str]
+
 getattr_s_func: TypeAlias = Callable[["Environment", AbstractObject, str], AbstractObject]
 setattr_s_func: TypeAlias = Callable[["Environment", AbstractObject, str, AbstractObject], AbstractObject]
 getattr_func: TypeAlias = Callable[["Environment", AbstractObject, AbstractObject], AbstractObject]
 setattr_func: TypeAlias = Callable[["Environment", AbstractObject, AbstractObject, AbstractObject], AbstractObject]
+
 iter_func: TypeAlias = Callable[["Environment", AbstractObject], AbstractObject]
 next_func: TypeAlias = Callable[["Environment", AbstractObject], AbstractObject]
 
 py_not_implemented = NotImplementedType().create_instance()
+
+
+def len_func(self):
+    return Int().create_instance()

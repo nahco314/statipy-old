@@ -186,7 +186,7 @@ class Typer(NodeTransformer):
             case Mod():
                 res = py_mod(self.env, node.left.abstract_object.get_obj(), node.right.abstract_object.get_obj())
             case Pow():
-                res = py_pow(self.env, node.left.abstract_object.get_obj(), node.right.abstract_object.get_obj())
+                res = py_pow(self.env, node.left.abstract_object.get_obj(), node.right.abstract_object.get_obj(), None)
             case LShift():
                 res = py_lshift(self.env, node.left.abstract_object.get_obj(), node.right.abstract_object.get_obj())
             case RShift():

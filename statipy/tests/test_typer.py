@@ -5,7 +5,7 @@ import statipy.core.typed_ast as t_ast
 from statipy.core.environment import Environment
 from statipy.core.node_preprocesser import NodePreprocessor
 from statipy.core.typer import Typer
-from statipy.core.abstract_object import AbstractObject, Int, Str
+from statipy.core.abstract_object import AbstractObject, Int, Bool, Str
 import statipy.errors as errors
 
 from textwrap import dedent
@@ -131,3 +131,48 @@ class TestTyper(unittest.TestCase):
 
         self.assertEqual(typer.env.variables["a"][0].value.get_obj(), Int().create_instance())
         self.assertEqual(typer.env.variables["b"][0].value.get_obj(), Str().create_instance())
+
+    def test_if(self):
+        code = dedent("""\
+        a = 10
+        if a > 5:
+            a = 5
+        else:
+            pass
+        """)
+        typer = Typer(code)
+        tree = typer.analyze()
+
+        self.assertEqual(typer.env.variables["a"][0].value.get_obj(), Int().create_instance())
+
+    def test_scope_error(self):
+        code = dedent("""\
+        a = 10
+        if a > 5:
+            b = 1
+        else:
+            b = 2
+        a *= b
+        """)
+        typer = Typer(code)
+        with self.assertRaises(errors.TypingError):
+            tree = typer.analyze()
+
+    def test_conditions(self):
+        code = dedent("""\
+        a = 50
+        b = 20
+        if not (a + b * 2 > 100 and a != 0):
+            a = 10
+        """)
+        typer = Typer(code)
+        tree = typer.analyze()
+
+        self.assertEqual(tree.body[2].test.abstract_object, Bool().create_instance())
+
+    def test_builtin_func(self):
+        code = dedent("""\
+        a = abs(-10)
+        """)
+        typer = Typer(code)
+        tree = typer.analyze()

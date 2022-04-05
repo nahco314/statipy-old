@@ -21,6 +21,9 @@ class AbstractObject:
         self.special_attr["type"] = self.type
         self.is_builtin: bool = isinstance(type_, BuiltinType)
 
+        # if and only if self.type is BuiltinFunction
+        self.function: Optional[Callable[["Environment", list[AbstractObject], dict[str, AbstractObject]], AbstractObject]] = None
+
         # self.attr["__class__"] = type_
 
     def get_type(self):
@@ -104,6 +107,7 @@ class AbstractType(AbstractObject):
         ("xor", ["__xor__", "__rxor__"]),
         ("and_", ["__and__", "__rand__"]),
         ("matmul", ["__matmul__", "__rmatmul__"]),
+        ("abs", ["__abs__"]),
         ("negative", ["__neg__"]),
         ("positive", ["__pos__"]),
         ("invert", ["__invert__"]),
@@ -149,6 +153,8 @@ class AbstractType(AbstractObject):
         self.inplace_and_: Optional[binary_func] = None
         self.inplace_matmul: Optional[binary_func] = None
 
+        self.abs: Optional[unary_func] = None
+
         self.length: Optional[unary_func] = None
         self.concat: Optional[binary_func] = None
         self.repeat: Optional[ssizeargfunc] = None
@@ -169,6 +175,7 @@ class AbstractType(AbstractObject):
 
         self.iter: Optional[iter_func] = None
         self.next: Optional[next_func] = None
+        self.call: Optional[Callable] = None
 
     def unification(self, target: AbstractObject):
         # ここはこのままじゃだめそう
@@ -314,6 +321,7 @@ class Int(BuiltinType):
         self.inplace_xor = int_bin_func
         self.inplace_and_ = int_bin_func
         # matmul is not implemented
+        self.abs = int_int
 
         self.negative = int_int
         self.positive = int_int
@@ -372,6 +380,23 @@ class Iterator(BuiltinType):
         super().__init__()
 
         self.seq = Undefined()
+
+
+class BuiltinFunction(BuiltinType):
+    def __init__(self):
+        super().__init__()
+
+        def call_func(env, func: AbstractObject, args: list[AbstractObject], kwargs: dict[str, AbstractObject]) -> AbstractObject:
+            assert func.function
+            return func.function(env, args, kwargs)
+
+        self.call = call_func
+
+    def create_instance(self, function: Optional[Callable[[list[AbstractObject], dict[AbstractObject]], AbstractObject]] = None) -> AbstractObject:
+        assert function is not None
+        obj = super().create_instance()
+        obj.function = function
+        return obj
 
 
 Attr: TypeAlias = dict[str, AbstractObject]

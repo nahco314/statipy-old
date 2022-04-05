@@ -19,6 +19,7 @@ from statipy.core.basic_func import (py_add, py_sub, py_mul, py_div, py_floordiv
                                      py_negative, py_positive, py_invert)
 
 from statipy.core.environment import Environment
+from statipy.core.builtins import abs_
 import statipy.errors as errors
 
 from typing import Any
@@ -28,9 +29,94 @@ class Typer(NodeTransformer):
     def __init__(self, code: str, env: Environment = None):
         self.t_ast = NodePreprocessor(code).make_ast()
         if env is None:
-            env = Environment(self.t_ast)
-        self.env = env
+            self.env = Environment(self.t_ast)
+            self.build_builtins()
+        else:
+            self.env = env
         self.ignore_vars = set()
+
+    def build_builtins(self):
+        # ArithmeticError
+        # AssertionError
+        # AttributeError
+        # BaseException
+        # BlockingIOError
+        # BrokenPipeError
+        # BufferError
+        # BytesWarning
+        # ChildProcessError
+        # ConnectionAbortedError
+        # ConnectionError
+        # ConnectionRefusedError
+        # ConnectionResetError
+        # DeprecationWarning
+        # EOFError
+        # Ellipsis
+        # EncodingWarning
+        # EnvironmentError
+        # Exception
+        # False : keyword
+        # FileExistsError
+        # FileNotFoundError
+        # FloatingPointError
+        # FutureWarning
+        # GeneratorExit
+        # IOError
+        # ImportError
+        # ImportWarning
+        # IndentationError
+        # IndexError
+        # InterruptedError
+        # IsADirectoryError
+        # KeyError
+        # KeyboardInterrupt
+        # LookupError
+        # MemoryError
+        # ModuleNotFoundError
+        # NameError
+        # None : keyword
+        # NotADirectoryError
+        # NotImplemented : keyword
+        # NotImplementedError
+        # OSError
+        # OverflowError
+        # PendingDeprecationWarning
+        # PermissionError
+        # ProcessLookupError
+        # RecursionError
+        # ReferenceError
+        # ResourceWarning
+        # RuntimeError
+        # RuntimeWarning
+        # StopAsyncIteration
+        # StopIteration
+        # SyntaxError
+        # SyntaxWarning
+        # SystemError
+        # SystemExit
+        # TabError
+        # TimeoutError
+        # True : keyword
+        # TypeError
+        # UnboundLocalError
+        # UnicodeDecodeError
+        # UnicodeEncodeError
+        # UnicodeError
+        # UnicodeTranslateError
+        # UnicodeWarning
+        # UserWarning
+        # ValueError
+        # Warning
+        # ZeroDivisionError
+        # __build_class__
+        # __debug__
+        # __doc__
+        # __import__
+        # __loader__
+        # __name__
+        # __package__
+        # __spec__
+        self.env.set_builtin("abs", abs_)
 
     def analyze(self) -> Typedmod:
         self.visit(self.t_ast)
@@ -404,6 +490,26 @@ class Typer(NodeTransformer):
         return node
 
     def visit_TypedFor(self, node: TypedFor) -> TypedFor:
+        tree = [node.iter]
+        now_vars = []
+        while tree:
+            now = tree.pop()
+            if isinstance(now, list):
+                tree.extend(now)
+            elif isinstance(now, TypedTuple):
+                tree.extend(now.elts)
+            elif isinstance(now, TypedName):
+                self.ignore_vars.add(now.id)
+                now_vars.append(now.id)
+            elif isinstance(now, TypedStarred) and isinstance(now.value, ast.Name):
+                self.ignore_vars.add(now.value.id)
+                now_vars.append(now.value.id)
+
+        self.generic_visit(node)
+
+        for var in now_vars:
+            self.ignore_vars.remove(var)
+
         self.env.step_in(node, node.body)
         iter_obj = py_get_iter(self.env, node.iter.abstract_object.get_obj())
         item = py_iter_next(self.env, iter_obj)

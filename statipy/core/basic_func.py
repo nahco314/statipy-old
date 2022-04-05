@@ -61,6 +61,7 @@ def UNARY_FUNC(method_name: str):
             return res
 
         raise errors.TypeError()
+    return func
 
 
 def index_check(obj: AbstractObject) -> bool:
@@ -109,7 +110,7 @@ def py_call(
 
     f_call = getattr(func.get_type(), "call", None)
     if f_call is not None:
-        return f_call(env, func, args)
+        return f_call(env, func, args, {})
 
     raise errors.TypeError
 
@@ -179,6 +180,15 @@ def py_iter_next(env: Environment, iter_: AbstractObject) -> AbstractObject:
         # StopIteration?
         raise Exception
     return result
+
+
+def py_abs(env: Environment, o: AbstractObject) -> AbstractObject:
+    f = getattr(o.get_type(), "abs", None)
+    if f is not None:
+        res = f(env, o)
+        return res
+
+    raise errors.TypeError
 
 
 def py_add(env: Environment, a: AbstractObject, b: AbstractObject) -> AbstractObject:

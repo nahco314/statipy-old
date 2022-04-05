@@ -17,6 +17,10 @@ class Environment:
         self.ast_to_block: dict[t_ast.TypedAST, Block] = {module: self.current_scope}
         self.variables: dict[str, list[Variable]] = defaultdict(list)
 
+    def set_builtin(self, name: str, value: AbstractObject):
+        assert not self.variables[name]
+        self.variables[name].append(Variable([name], self.current_scope, None, [], [], value))
+
     def step_in(self, node: t_ast.Typedstmt, body: list[t_ast.Typedstmt]):
         self.tree.append(node)
         block = Block(body, node, self.current_scope)
@@ -56,7 +60,7 @@ class Variable:
     def __init__(self,
                  name_candidates: list[str],
                  scope: Block,
-                 definition_location: t_ast.TypedAST,
+                 definition_location: Optional[t_ast.TypedAST],
                  assign_locations: list[t_ast.TypedAST],
                  reference_locations: list[t_ast.TypedAST],
                  value: AbstractObject = None

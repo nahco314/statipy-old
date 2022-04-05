@@ -23,6 +23,9 @@ class AbstractObject:
 
         # self.attr["__class__"] = type_
 
+    def get_type(self):
+        return self.type.get_obj()
+
     def replace(self, obj: AbstractObject):
         """replace self with obj"""
         if self.parent is not None:
@@ -100,6 +103,10 @@ class AbstractType(AbstractObject):
         ("negative", ["__neg__"]),
         ("positive", ["__pos__"]),
         ("invert", ["__invert__"]),
+        ("getattro", ["__getattr__", "__getattribute__"]),
+        ("setattro", ["__setattr__"]),
+        ("getattr", []),
+        ("setattr", []),
     )
 
     def __init__(self):

@@ -34,7 +34,7 @@ def INPLACE_BINARY_FUNC(method_name: str):
 
 def UNARY_FUNC(method_name: str):
     def func(env: Environment, o: AbstractObject) -> AbstractObject:
-        f = getattr(o.type, method_name, None)
+        f = getattr(o.get_type(), method_name, None)
         if f is not None:
             res = f(env, o)
             return res
@@ -48,16 +48,16 @@ unary_func: TypeAlias = Callable[[Environment, AbstractObject], AbstractObject]
 
 
 def index_check(obj: AbstractObject) -> bool:
-    return getattr(obj.type, "index", None) is not None  # hasattr?
+    return getattr(obj.get_type(), "index", None) is not None  # hasattr?
 
 
 def binary_op1(env: Environment, a: AbstractObject, b: AbstractObject, op: str) -> AbstractObject:
-    a_func = getattr(a.type, op, None)  # ない場合の初期化の仕方これでいい？
-    b_func = getattr(b.type, op, None)
+    a_func = getattr(a.get_type(), op, None)  # ない場合の初期化の仕方これでいい？
+    b_func = getattr(b.get_type(), op, None)
     res = py_not_implemented
 
     if a_func is not None:
-        if b_func is not None and b.type.is_subtype(a.type):
+        if b_func is not None and b.get_type().is_subtype(a.get_type()):
             res = b_func(env, a, b)
             b_func = None
         else:
@@ -70,7 +70,7 @@ def binary_op1(env: Environment, a: AbstractObject, b: AbstractObject, op: str) 
 
 
 def binary_i_op1(env: Environment, a: AbstractObject, b: AbstractObject, i_op: str, op: str) -> AbstractObject:
-    i_func = getattr(a.type, i_op, None)
+    i_func = getattr(a.get_type(), i_op, None)
     res = py_not_implemented
 
     if i_func is not None:
@@ -91,11 +91,47 @@ def py_call(
     if kwargs:
         raise errors.Mijissou
 
-    f_call = getattr(func.type, "call", None)
+    f_call = getattr(func.get_type(), "call", None)
     if f_call is not None:
         return f_call(env, func, args)
 
     raise errors.TypeError
+
+
+def py_getattr_string(env: Environment, v: AbstractObject, name: str) -> AbstractObject:
+    tp = v.get_type()
+    getattr_func = getattr(tp, "getattr", None)
+    if getattr_func is not None:
+        return getattr_func(env, v, name)
+
+    if tp.tp_getattr is not None:
+        result = tp.tp_getattr(env, v, name)
+    else:
+        raise errors.AttributeError()
+
+    return result
+
+
+def py_getattr(env: Environment, v: AbstractObject, name: AbstractObject) -> AbstractObject:
+    raise errors.Mijissou
+
+
+def py_setattr_string(env: Environment, v: AbstractObject, name: str, value: AbstractObject) -> None:
+    tp = v.get_type()
+    setattr_func = getattr(tp, "setattr", None)
+    if setattr_func is not None:
+        setattr_func(env, v, name, value)
+
+    if tp.tp_setattr is not None:
+        tp.tp_setattr(env, v, name, value)
+    else:
+        raise errors.AttributeError()
+
+    return None
+
+
+def py_setattr(env: Environment, v: AbstractObject, name: str, value: AbstractObject) -> AbstractObject:
+    raise errors.Mijissou
 
 
 py_add: binary_func = BINARY_FUNC("add")  # sq.concat?

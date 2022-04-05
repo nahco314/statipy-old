@@ -11,6 +11,7 @@ from statipy.core.basic_func import (py_add, py_sub, py_mul, py_div, py_floordiv
                                      py_or, py_xor, py_and, py_matmul,
                                      py_inplace_add, py_inplace_mul,
                                      py_call,
+                                     py_getattr, py_setattr, py_getattr_string, py_setattr_string,
                                      py_negative, py_positive, py_invert)
 
 from statipy.core.environment import Environment
@@ -227,7 +228,7 @@ class Typer(NodeTransformer):
             raise errors.Mijissou
 
         args = [arg.abstract_obj.get_obj() for arg in node.args]
-        res = py_call(self.env, node.func.abstract_obj.get_obj(), args)
+        res = py_call(self.env, node.func.abstract_obj.get_obj(), args, {})
         node.abstract_object = res
         return node
 
@@ -240,7 +241,15 @@ class Typer(NodeTransformer):
         return node
 
     def visit_Attribute(self, node: TypedAttribute) -> TypedAttribute:
-        raise errors.Mijissou
+        self.generic_visit(node)
+        if not isinstance(node.attr, TypedConstant):
+            raise errors.Mijissou
+        attr = node.attr.value
+        assert isinstance(attr, str)
+
+        res = py_getattr_string(self.env, node.value.abstract_obj.get_obj(), attr)
+        node.abstract_object = res
+        return node
 
     def visit_NamedExpr(self, node: TypedNamedExpr) -> TypedNamedExpr:
         self.generic_visit(node)
@@ -268,6 +277,7 @@ class Typer(NodeTransformer):
         return node
 
     def visit_Slice(self, node: TypedSlice) -> TypedSlice:
+        # index? あたりを評価しないといけなさそう
         self.generic_visit(node)
         res = Slice().create_instance()
         node.abstract_object = res

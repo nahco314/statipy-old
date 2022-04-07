@@ -214,17 +214,17 @@ class Typer(NodeTransformer):
                 raise errors.Mijissou
 
     def assign_subscript(self, target: Typedexpr, slice_: Typedexpr, value: AbstractObject):
-        if not target.is_builtin:
+        if not target.abstract_object.is_builtin:
             raise errors.Mijissou
         match slice_:
             case TypedSlice(lower=lower, upper=upper, step=step):
                 raise errors.Mijissou
             case _:
-                if isinstance(target, List):
-                    target.special_attr["elt"].get_obj().unification(value)
-                elif isinstance(target, Dict):
-                    target.special_attr["key"].get_obj().unification(slice_)
-                    target.special_attr["value"].get_obj().unification(value)
+                if isinstance(target.abstract_object.get_type(), List):
+                    target.abstract_object.special_attr["elt"].get_obj().unification(value)
+                elif isinstance(target.abstract_object.get_type(), Dict):
+                    target.abstract_object.special_attr["key"].get_obj().unification(slice_)
+                    target.abstract_object.special_attr["value"].get_obj().unification(value)
                 else:
                     raise errors.Mijissou
 
@@ -429,9 +429,9 @@ class Typer(NodeTransformer):
         if not val.is_builtin:
             raise errors.Mijissou
 
-        if isinstance(val, (List, Tuple)):
+        if isinstance(val.get_type(), (List, Tuple)):
             res = val.special_attr["elt"].get_obj()
-        elif isinstance(val, Dict):
+        elif isinstance(val.get_type(), Dict):
             val.special_attr["key"].unification(node.slice.value.abstract_object.get_obj())
             res = val.special_attr["item"].get_obj()
         else:
@@ -540,7 +540,7 @@ class Typer(NodeTransformer):
             case _:
                 raise Exception
 
-        self.env.assign_variable(node, node.target.id, res)
+        self.assign(node, node.target, res)
         node.abstract_object = res
         return node
 

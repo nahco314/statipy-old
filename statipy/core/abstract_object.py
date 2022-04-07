@@ -40,6 +40,8 @@ class AbstractObject:
 
     def replace(self, obj: AbstractObject):
         """replace self with obj"""
+        if self is obj:
+            return
         if self.parent is not None:
             self.parent.replace(obj)
         else:
@@ -50,10 +52,12 @@ class AbstractObject:
             return self
         else:
             obj = self.parent.get_obj()
+            assert self is not obj
             self.parent = obj
             return obj
 
     def unification(self, target: AbstractObject):
+        target = target.get_obj()
         if self is target:
             return
 
@@ -553,7 +557,12 @@ class List(BuiltinType):
     def __init__(self):
         super().__init__()
 
+        def list_getitem(env, self: AbstractObject, index: int):
+            return self.get_obj().special_attr["elt"]
+
         self.special_attr["elt"] = Undefined()
+
+        self.get_item = list_getitem
 
 
 class Tuple(BuiltinType):
@@ -594,7 +603,12 @@ class Iterator(BuiltinType):
     def __init__(self):
         super().__init__()
 
-        self.seq = Undefined()
+        def iter_next(env, self: AbstractObject):
+            seq = self.get_obj().special_attr["seq"]
+            return seq.get_type().get_item(env, seq, 0)
+
+        self.iter = self_iter
+        self.next = iter_next
 
 
 class BuiltinFunction(BuiltinType):

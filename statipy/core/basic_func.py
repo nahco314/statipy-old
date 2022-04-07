@@ -159,12 +159,12 @@ def py_setattr(env: Environment, v: AbstractObject, name: str, value: AbstractOb
 def py_sequence_check(s: AbstractObject) -> bool:
     if s.type.is_subtype(Dict()):
         return False
-    return getattr(s.type, "getitem", None) is not None
+    return getattr(s.type, "get_item", None) is not None
 
 
 def py_seq_iter_new(env: Environment, s: AbstractObject) -> AbstractObject:
     it = Iterator().create_instance()
-    it.seq = s
+    it.special_attr["seq"] = s
     return it
 
 

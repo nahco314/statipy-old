@@ -188,3 +188,17 @@ class TestTyper(unittest.TestCase):
         tree = typer.analyze()
         # i is int
         self.assertEqual(tree.body[2].body[0].value.abstract_object.get_obj(), Int().create_instance())
+
+    def test_list(self):
+        code = dedent("""\
+        lst = [1, 2, 3]
+        a = lst[0]
+        lst[1] = 0
+        lst[2] *= 2
+        
+        res = 0
+        for i in lst:
+            res += i
+        """)
+        typer = Typer(code)
+        tree = typer.analyze()

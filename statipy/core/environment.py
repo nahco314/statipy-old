@@ -30,7 +30,7 @@ class Environment:
     def assign_variable(self, node: t_ast.TypedAST, name: str, value: AbstractObject):
         # ToDo: 再代入
         if not self.variables[name]:
-            self.variables[name].append(Variable([name], self.current_scope, node, [], []))
+            self.variables[name].append(Variable([name], self.current_scope, node, [], [], value))
         var = self.variables[name][-1]
         var.assign(node, value)
 

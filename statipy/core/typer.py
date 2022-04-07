@@ -19,7 +19,11 @@ from statipy.core.basic_func import (py_add, py_sub, py_mul, py_div, py_floordiv
                                      py_negative, py_positive, py_invert)
 
 from statipy.core.environment import Environment
-from statipy.core.builtins import abs_
+from statipy.core.builtins import (abs_, all_, any_, ascii_, bin_, bool_, bytearray_, bytes_, callable_, chr_, complex_,
+                                   dict_, divmod_, enumerate_, exit_, filter_, float_, getattr_, hash_, hex_, input_,
+                                   int_, iter_, len_, list_, map_, max_, memoryview_, min_, next_, object_, oct_, ord_,
+                                   pow_, print_, quit_, range_, repr_, reversed_, round_, set_, setattr_, slice_,
+                                   sorted_, str_, sum_, tuple_, type_, zip_)
 import statipy.errors as errors
 
 from typing import Any
@@ -117,6 +121,80 @@ class Typer(NodeTransformer):
         # __package__
         # __spec__
         self.env.set_builtin("abs", abs_)
+        # aiter
+        self.env.set_builtin("all", all_)
+        # anext
+        self.env.set_builtin("any", any_)
+        self.env.set_builtin("ascii", ascii_)
+        self.env.set_builtin("bin", bin_)
+        self.env.set_builtin("bool", bool_)
+        # breakpoint
+        self.env.set_builtin("bytearray", bytearray_)
+        self.env.set_builtin("bytes", bytes_)
+        self.env.set_builtin("callable", callable_)
+        self.env.set_builtin("chr", chr_)
+        # classmethod
+        # compile
+        self.env.set_builtin("complex", complex_)
+        # copyright
+        # credits
+        # delattr
+        self.env.set_builtin("dict", dict_)
+        # dir
+        self.env.set_builtin("divmod", divmod_)
+        self.env.set_builtin("enumerate", enumerate_)
+        # eval
+        # exec
+        self.env.set_builtin("exit", exit_)
+        self.env.set_builtin("filter", filter_)
+        self.env.set_builtin("float", float_)
+        # format
+        # frozenset
+        self.env.set_builtin("getattr", getattr_)
+        # globals
+        # hasattr
+        self.env.set_builtin("hash", hash_)
+        # help
+        self.env.set_builtin("hex", hex_)
+        # id
+        self.env.set_builtin("input", input_)
+        self.env.set_builtin("int", int_)
+        # isinstance
+        # issubclass
+        self.env.set_builtin("iter", iter_)
+        self.env.set_builtin("len", len_)
+        # license
+        self.env.set_builtin("list", list_)
+        # locals
+        self.env.set_builtin("map", map_)
+        self.env.set_builtin("max", max_)
+        self.env.set_builtin("memoryview", memoryview_)
+        self.env.set_builtin("min", min_)
+        self.env.set_builtin("next", next_)
+        self.env.set_builtin("object", object_)
+        self.env.set_builtin("oct", oct_)
+        # open
+        self.env.set_builtin("ord", ord_)
+        self.env.set_builtin("pow", pow_)
+        self.env.set_builtin("print", print_)
+        # property
+        self.env.set_builtin("quit", quit_)
+        self.env.set_builtin("range", range_)
+        self.env.set_builtin("repr", repr_)
+        self.env.set_builtin("reversed", reversed_)
+        self.env.set_builtin("round", round_)
+        self.env.set_builtin("set", set_)
+        self.env.set_builtin("setattr", setattr_)
+        self.env.set_builtin("slice", slice_)
+        self.env.set_builtin("sorted", sorted_)
+        # staticmethod
+        self.env.set_builtin("str", str_)
+        self.env.set_builtin("sum", sum_)
+        # super
+        self.env.set_builtin("tuple", tuple_)
+        self.env.set_builtin("type", type_)
+        # vars
+        self.env.set_builtin("zip", zip_)
 
     def analyze(self) -> Typedmod:
         self.visit(self.t_ast)
@@ -421,31 +499,44 @@ class Typer(NodeTransformer):
         self.generic_visit(node)
         match node.op:
             case Add():
-                res = py_inplace_add(self.env, node.target.abstract_object.get_obj(), node.value.abstract_object.get_obj())
+                res = py_inplace_add(self.env, node.target.abstract_object.get_obj(),
+                                     node.value.abstract_object.get_obj())
             case Sub():
-                res = py_inplace_sub(self.env, node.target.abstract_object.get_obj(), node.value.abstract_object.get_obj())
+                res = py_inplace_sub(self.env, node.target.abstract_object.get_obj(),
+                                     node.value.abstract_object.get_obj())
             case Mult():
-                res = py_inplace_mul(self.env, node.target.abstract_object.get_obj(), node.value.abstract_object.get_obj())
+                res = py_inplace_mul(self.env, node.target.abstract_object.get_obj(),
+                                     node.value.abstract_object.get_obj())
             case Div():
-                res = py_inplace_div(self.env, node.target.abstract_object.get_obj(), node.value.abstract_object.get_obj())
+                res = py_inplace_div(self.env, node.target.abstract_object.get_obj(),
+                                     node.value.abstract_object.get_obj())
             case FloorDiv():
-                res = py_inplace_floordiv(self.env, node.target.abstract_object.get_obj(), node.value.abstract_object.get_obj())
+                res = py_inplace_floordiv(self.env, node.target.abstract_object.get_obj(),
+                                          node.value.abstract_object.get_obj())
             case Mod():
-                res = py_inplace_mod(self.env, node.target.abstract_object.get_obj(), node.value.abstract_object.get_obj())
+                res = py_inplace_mod(self.env, node.target.abstract_object.get_obj(),
+                                     node.value.abstract_object.get_obj())
             case Pow():
-                res = py_inplace_pow(self.env, node.target.abstract_object.get_obj(), node.value.abstract_object.get_obj())
+                res = py_inplace_pow(self.env, node.target.abstract_object.get_obj(),
+                                     node.value.abstract_object.get_obj())
             case LShift():
-                res = py_inplace_lshift(self.env, node.target.abstract_object.get_obj(), node.value.abstract_object.get_obj())
+                res = py_inplace_lshift(self.env, node.target.abstract_object.get_obj(),
+                                        node.value.abstract_object.get_obj())
             case RShift():
-                res = py_inplace_rshift(self.env, node.target.abstract_object.get_obj(), node.value.abstract_object.get_obj())
+                res = py_inplace_rshift(self.env, node.target.abstract_object.get_obj(),
+                                        node.value.abstract_object.get_obj())
             case BitOr():
-                res = py_inplace_or(self.env, node.target.abstract_object.get_obj(), node.value.abstract_object.get_obj())
+                res = py_inplace_or(self.env, node.target.abstract_object.get_obj(),
+                                    node.value.abstract_object.get_obj())
             case BitXor():
-                res = py_inplace_xor(self.env, node.target.abstract_object.get_obj(), node.value.abstract_object.get_obj())
+                res = py_inplace_xor(self.env, node.target.abstract_object.get_obj(),
+                                     node.value.abstract_object.get_obj())
             case BitAnd():
-                res = py_inplace_and(self.env, node.target.abstract_object.get_obj(), node.value.abstract_object.get_obj())
+                res = py_inplace_and(self.env, node.target.abstract_object.get_obj(),
+                                     node.value.abstract_object.get_obj())
             case MatMult():
-                res = py_inplace_matmul(self.env, node.target.abstract_object.get_obj(), node.value.abstract_object.get_obj())
+                res = py_inplace_matmul(self.env, node.target.abstract_object.get_obj(),
+                                        node.value.abstract_object.get_obj())
             case _:
                 raise Exception
 
@@ -490,7 +581,7 @@ class Typer(NodeTransformer):
         return node
 
     def visit_TypedFor(self, node: TypedFor) -> TypedFor:
-        tree = [node.iter]
+        tree = [node.target]
         now_vars = []
         while tree:
             now = tree.pop()
@@ -505,15 +596,15 @@ class Typer(NodeTransformer):
                 self.ignore_vars.add(now.value.id)
                 now_vars.append(now.value.id)
 
-        self.generic_visit(node)
+        target, iter_ = self.visit(node.target), self.visit(node.iter)
 
         for var in now_vars:
             self.ignore_vars.remove(var)
 
         self.env.step_in(node, node.body)
-        iter_obj = py_get_iter(self.env, node.iter.abstract_object.get_obj())
+        iter_obj = py_get_iter(self.env, iter_.abstract_object.get_obj())
         item = py_iter_next(self.env, iter_obj)
-        self.assign(node, node.target, item)
+        self.assign(node, target, item)
         for stmt in node.body:
             self.visit(stmt)
         self.env.step_out()

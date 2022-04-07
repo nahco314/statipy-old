@@ -1,4 +1,5 @@
-from statipy.core.abstract_object import AbstractObject, Dict, Iterator, py_not_implemented, \
+from statipy.core.abstract_object import AbstractObject, AbstractType, \
+    Str, Dict, Iterator, py_not_implemented, \
     binary_func, ternary_func, unary_func, ssizeargfunc
 import statipy.errors as errors
 from statipy.core.environment import Environment
@@ -66,6 +67,10 @@ def UNARY_FUNC(method_name: str):
 
 def index_check(obj: AbstractObject) -> bool:
     return getattr(obj.get_type(), "index", None) is not None  # hasattr?
+
+
+def callable_check(obj: AbstractObject) -> bool:
+    return getattr(obj.get_type(), "call", None) is not None
 
 
 def binary_op1(env: Environment, a: AbstractObject, b: AbstractObject, op: str) -> AbstractObject:
@@ -191,6 +196,36 @@ def py_abs(env: Environment, o: AbstractObject) -> AbstractObject:
     raise errors.TypeError
 
 
+def py_repr(env: Environment, v: AbstractObject) -> AbstractObject:
+    if v.get_type().repr is None:
+        raise errors.TypingError
+
+    res = v.get_type().repr(env, v)
+    return res
+
+
+def py_ascii(env: Environment, v: AbstractObject) -> AbstractObject:
+    repr = py_repr(env, v)
+    ascii_ = Str().create_instance()
+    return ascii_
+
+
+def py_hash(env: Environment, v: AbstractObject) -> AbstractObject:
+    if v.get_type().hash is None:
+        raise errors.TypingError
+
+    res = v.get_type().hash(env, v)
+    return res
+
+
+def py_len(env: Environment, v: AbstractObject) -> AbstractObject:
+    if v.get_type().len is None:
+        raise errors.TypingError
+
+    res = v.get_type().len(env, v)
+    return res
+
+
 def py_add(env: Environment, a: AbstractObject, b: AbstractObject) -> AbstractObject:
     res = binary_op1(env, a, b, "add")
 
@@ -243,6 +278,7 @@ py_or: binary_func = BINARY_FUNC("or")
 py_xor: binary_func = BINARY_FUNC("xor")
 py_and: binary_func = BINARY_FUNC("and")
 py_matmul: binary_func = BINARY_FUNC("matmul")
+py_divmod: binary_func = BINARY_FUNC("divmod")
 
 
 def py_inplace_add(env: Environment, a: AbstractObject, b: AbstractObject) -> AbstractObject:
@@ -292,3 +328,29 @@ py_inplace_matmul: binary_func = INPLACE_BINARY_FUNC("matmul")
 py_negative: unary_func = UNARY_FUNC("negative")
 py_positive: unary_func = UNARY_FUNC("positive")
 py_invert: unary_func = UNARY_FUNC("invert")
+
+
+def find_name_in_mro(type_: AbstractType, name: str) -> AbstractObject:
+    mro = type_.mro
+    res = None
+    n = len(mro)
+    for i in range(n):
+        base = mro[i]
+        res = base.attr[name]
+        if res is not None:
+            break
+    return res
+
+
+def py_type_lookup(env: Environment, type_: AbstractType, name: str) -> AbstractObject:
+    res = find_name_in_mro(type_, name)
+    return res
+
+
+def py_type_lookup_special(env: Environment, self: AbstractObject, attrid: str) -> AbstractObject:
+    res = py_type_lookup(env, self.get_type(), attrid)
+    if res is not None:
+        f = res.get_type().get_callable()
+        if f is not None:
+            res = f(env, res, self, self.get_type())
+    return res

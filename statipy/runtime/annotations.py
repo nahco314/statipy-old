@@ -8,36 +8,35 @@ U = TypeVar("U")
 
 
 class LenAlias(GenericAlias):
-    pass
+    container = None
+
+    def __new__(cls, *args, **kwargs):
+        return super().__new__(cls, cls.container, (), *args, **kwargs)
 
 
 class LenListAlias(LenAlias):
-    def __init__(self):
-        super(LenAlias, self).__init__(list, ())
+    container = list
 
     def __getitem__(self, params: tuple[Type[T], int]):
         return list[T]
 
 
 class LenSetAlias(LenAlias):
-    def __init__(self):
-        super(LenAlias, self).__init__(set, ())
+    container = set
 
     def __getitem__(self, params: tuple[Type[T], int]):
         return set[T]
 
 
 class LenDictAlias(LenAlias):
-    def __init__(self):
-        super(LenAlias, self).__init__(dict, ())
+    container = dict
 
     def __getitem__(self, params: tuple[Type[T], Type[U], int]):
         return dict[T, U]
 
 
 class LenStrAlias(LenAlias):
-    def __init__(self):
-        super(LenAlias, self).__init__(set, ())
+    container = str
 
     def __getitem__(self, params: int):
         return str

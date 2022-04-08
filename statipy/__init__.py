@@ -1,1 +1,1 @@
-from statipy.runtime import LenList, LenTuple, LenSet, LenStr, LenDict
+from statipy.runtime import LenList, LenSet, LenStr, LenDict

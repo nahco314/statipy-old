@@ -2,7 +2,6 @@ from typing import TypeVar, Type
 from types import GenericAlias
 
 
-C = TypeVar("C")
 T = TypeVar("T")
 U = TypeVar("U")
 

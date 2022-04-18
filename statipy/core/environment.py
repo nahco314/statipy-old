@@ -16,6 +16,7 @@ class Environment:
         self.current_scope: Block = Block(module.body, module, None)
         self.ast_to_block: dict[t_ast.TypedAST, Block] = {module: self.current_scope}
         self.variables: dict[str, list[Variable]] = defaultdict(list)
+        self.cache: dict[t_ast.TypedAST, Variable] = {}
 
     def set_builtin(self, name: str, value: AbstractObject):
         assert not self.variables[name]
@@ -29,15 +30,21 @@ class Environment:
 
     def assign_variable(self, node: t_ast.TypedAST, name: str, value: AbstractObject):
         # ToDo: 再代入
+        assert node not in self.cache
         if not self.variables[name]:
             self.variables[name].append(Variable([name], self.current_scope, node, [], [], value))
         var = self.variables[name][-1]
         var.assign(node, value)
+        self.cache[node] = var
 
     def get_variable(self, node: t_ast.TypedAST, name: str) -> AbstractObject:
+        if node in self.cache:
+            return self.cache[node].value.get_obj()
         if not self.variables[name]:
             raise errors.TypeError
-        res = self.variables[name][-1].reference(node)
+        var = self.variables[name][-1]
+        res = var.reference(node)
+        self.cache[node] = var
         return res
 
     def step_out(self):
@@ -46,6 +53,9 @@ class Environment:
             if vars and vars[-1].scope == self.current_scope:
                 vars.pop()
         self.current_scope = self.current_scope.parent
+
+    def get_cache(self, node: t_ast.TypedAST) -> Variable:
+        return self.cache[node]
 
 
 class Block:

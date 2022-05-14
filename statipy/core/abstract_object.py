@@ -155,6 +155,8 @@ class AbstractType(AbstractObject):
         ("init", ["__init__"]),
     )
 
+    generic_names: tuple[str] = None
+
     def __init__(self):
         super().__init__(Type())
 
@@ -246,8 +248,16 @@ class AbstractType(AbstractObject):
         else:
             pass
 
-    def create_instance(self):
+    def create_instance(self, generics: dict[str, AbstractObject] | list[AbstractObject] = None):
         obj = AbstractObject(self)
+        if generics is not None:
+            if isinstance(generics, list):
+                if self.__class__.generic_names is None:
+                    raise Exception("Generic types are not defined.")
+                generics = dict(zip(self.__class__.generic_names, generics))
+            for key, value in generics.items():
+                print(obj.special_attr, repr(value), key)
+                obj.special_attr[key].unification(value)
         return obj
 
     def is_subtype(self, type_: AbstractType):
@@ -554,6 +564,8 @@ class Complex(BuiltinType):
 
 
 class List(BuiltinType):
+    generic_names = ("elt",)
+
     def __init__(self):
         super().__init__()
 
@@ -566,6 +578,8 @@ class List(BuiltinType):
 
 
 class Tuple(BuiltinType):
+    generic_names = ("elt",)
+
     # ToDo: 定数長のタプルへの対応
     def __init__(self):
         super().__init__()
@@ -574,6 +588,8 @@ class Tuple(BuiltinType):
 
 
 class Set(BuiltinType):
+    generic_names = ("elt",)
+
     def __init__(self):
         super().__init__()
 
@@ -581,6 +597,8 @@ class Set(BuiltinType):
 
 
 class Dict(BuiltinType):
+    generic_names = ("key", "value")
+
     def __init__(self):
         super().__init__()
 

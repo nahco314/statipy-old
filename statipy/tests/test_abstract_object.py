@@ -1,7 +1,7 @@
 import unittest
 
 from statipy.errors import TypingError
-from statipy.core.abstract_object import AbstractObject, AbstractType, BuiltinType, Str, Int
+from statipy.core.abstract_object import AbstractObject, AbstractType, BuiltinType, Str, Int, Dict
 
 
 class TestAbstractObject(unittest.TestCase):
@@ -28,3 +28,8 @@ class TestAbstractObject(unittest.TestCase):
         with self.assertRaises(TypingError):
             a.unification(c)
         self.assertIsNot(a.get_obj(), c.get_obj())
+
+    def test_create_with_generics(self):
+        d = Dict().create_instance([Int().create_instance(), Int().create_instance()])
+        self.assertIs(d.special_attr["key"].get_obj().get_type(), Int())
+        self.assertIs(d.special_attr["value"].get_obj().get_type(), Int())

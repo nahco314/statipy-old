@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import ast
 from ast import NodeTransformer
 
@@ -25,6 +27,8 @@ from statipy.core.builtins import (abs_, all_, any_, ascii_, bin_, bool_, bytear
                                    pow_, print_, quit_, range_, repr_, reversed_, round_, set_, setattr_, slice_,
                                    sorted_, str_, sum_, tuple_, type_, zip_)
 import statipy.errors as errors
+
+from contextlib import contextmanager
 
 from typing import Any
 
@@ -196,9 +200,26 @@ class Typer(NodeTransformer):
         # vars
         self.env.set_builtin("zip", zip_)
 
-    def analyze(self) -> Typedmod:
-        self.visit(self.t_ast)
-        return self.t_ast
+    @contextmanager
+    def ignore_variables(self, tree: list[Typedexpr | list[Typedexpr]]) -> bool:
+        now_vars = []
+        while tree:
+            now = tree.pop()
+            if isinstance(now, list):
+                tree.extend(now)
+            elif isinstance(now, TypedTuple):
+                tree.extend(now.elts)
+            elif isinstance(now, TypedName):
+                self.ignore_vars.add(now.id)
+                now_vars.append(now.id)
+            elif isinstance(now, TypedStarred) and isinstance(now.value, ast.Name):
+                self.ignore_vars.add(now.value.id)
+                now_vars.append(now.value.id)
+
+        yield
+
+        for var in now_vars:
+            self.ignore_vars.remove(var)
 
     def assign(self, assign_node: TypedAST, target: Typedexpr, value: AbstractObject):
         match target:
@@ -463,29 +484,13 @@ class Typer(NodeTransformer):
         raise errors.Mijissou
 
     def visit_TypedAssign(self, node: TypedAssign) -> TypedAssign:
-        tree = [node.targets]
-        now_vars = []
-        while tree:
-            now = tree.pop()
-            if isinstance(now, list):
-                tree.extend(now)
-            elif isinstance(now, TypedTuple):
-                tree.extend(now.elts)
-            elif isinstance(now, TypedName):
-                self.ignore_vars.add(now.id)
-                now_vars.append(now.id)
-            elif isinstance(now, TypedStarred) and isinstance(now.value, ast.Name):
-                self.ignore_vars.add(now.value.id)
-                now_vars.append(now.value.id)
+        with self.ignore_variables([node.targets]):
+            self.generic_visit(node)
+            for target in node.targets:
+                self.assign(node, target, node.value.abstract_object.get_obj())
 
-        self.generic_visit(node)
-        for target in node.targets:
-            self.assign(node, target, node.value.abstract_object.get_obj())
+            node.abstract_object = node.value.abstract_object.get_obj()
 
-        for var in now_vars:
-            self.ignore_vars.remove(var)
-
-        node.abstract_object = node.value.abstract_object.get_obj()
         return node
 
     def visit_TypedAnnAssign(self, node: TypedAnnAssign) -> TypedAnnAssign:
@@ -581,25 +586,8 @@ class Typer(NodeTransformer):
         return node
 
     def visit_TypedFor(self, node: TypedFor) -> TypedFor:
-        tree = [node.target]
-        now_vars = []
-        while tree:
-            now = tree.pop()
-            if isinstance(now, list):
-                tree.extend(now)
-            elif isinstance(now, TypedTuple):
-                tree.extend(now.elts)
-            elif isinstance(now, TypedName):
-                self.ignore_vars.add(now.id)
-                now_vars.append(now.id)
-            elif isinstance(now, TypedStarred) and isinstance(now.value, ast.Name):
-                self.ignore_vars.add(now.value.id)
-                now_vars.append(now.value.id)
-
-        target, iter_ = self.visit(node.target), self.visit(node.iter)
-
-        for var in now_vars:
-            self.ignore_vars.remove(var)
+        with self.ignore_variables([node.target]):
+            target, iter_ = self.visit(node.target), self.visit(node.iter)
 
         self.env.step_in(node, node.body)
         iter_obj = py_get_iter(self.env, iter_.abstract_object.get_obj())

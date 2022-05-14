@@ -7,6 +7,7 @@ from statipy.core.node_preprocesser import NodePreprocessor
 from statipy.core.typer import Typer
 from statipy.core.abstract_object import AbstractObject, Int, Bool, Str
 import statipy.errors as errors
+from statipy.core.analyze import analyze,  analyze_env
 
 from textwrap import dedent
 
@@ -90,11 +91,10 @@ class TestTyper(unittest.TestCase):
         b = "hello"
         a += a + 2
         """)
-        typer = Typer(code)
-        tree = typer.analyze()
+        tree, env = analyze_env(code)
 
-        self.assertEqual(typer.env.variables["a"][0].value.get_obj(), Int().create_instance())
-        self.assertEqual(typer.env.variables["b"][0].value.get_obj(), Str().create_instance())
+        self.assertEqual(env.variables["a"][0].value.get_obj(), Int().create_instance())
+        self.assertEqual(env.variables["b"][0].value.get_obj(), Str().create_instance())
 
     def test_basis_error(self):
         code = dedent("""\
@@ -102,9 +102,8 @@ class TestTyper(unittest.TestCase):
         b = "hello"
         a = b
         """)
-        typer = Typer(code)
         with self.assertRaises(errors.TypingError):
-            tree = typer.analyze()
+            analyze(code)
 
     def test_binary_op(self):
         code = dedent("""\
@@ -112,12 +111,11 @@ class TestTyper(unittest.TestCase):
         b = "a" + "b"
         c = a * b
         """)
-        typer = Typer(code)
-        tree = typer.analyze()
+        tree, env = analyze_env(code)
 
-        self.assertEqual(typer.env.variables["a"][0].value.get_obj(), Int().create_instance())
-        self.assertEqual(typer.env.variables["b"][0].value.get_obj(), Str().create_instance())
-        self.assertEqual(typer.env.variables["c"][0].value.get_obj(), Str().create_instance())
+        self.assertEqual(env.variables["a"][0].value.get_obj(), Int().create_instance())
+        self.assertEqual(env.variables["b"][0].value.get_obj(), Str().create_instance())
+        self.assertEqual(env.variables["c"][0].value.get_obj(), Str().create_instance())
 
     def test_inplace_op(self):
         code = dedent("""\
@@ -126,11 +124,10 @@ class TestTyper(unittest.TestCase):
         b = "a"
         b *= a
         """)
-        typer = Typer(code)
-        tree = typer.analyze()
+        tree, env = analyze_env(code)
 
-        self.assertEqual(typer.env.variables["a"][0].value.get_obj(), Int().create_instance())
-        self.assertEqual(typer.env.variables["b"][0].value.get_obj(), Str().create_instance())
+        self.assertEqual(env.variables["a"][0].value.get_obj(), Int().create_instance())
+        self.assertEqual(env.variables["b"][0].value.get_obj(), Str().create_instance())
 
     def test_if(self):
         code = dedent("""\
@@ -140,10 +137,9 @@ class TestTyper(unittest.TestCase):
         else:
             pass
         """)
-        typer = Typer(code)
-        tree = typer.analyze()
+        tree, env = analyze_env(code)
 
-        self.assertEqual(typer.env.variables["a"][0].value.get_obj(), Int().create_instance())
+        self.assertEqual(env.variables["a"][0].value.get_obj(), Int().create_instance())
 
     def test_scope_error(self):
         code = dedent("""\
@@ -154,9 +150,8 @@ class TestTyper(unittest.TestCase):
             b = 2
         a *= b
         """)
-        typer = Typer(code)
         with self.assertRaises(errors.TypingError):
-            tree = typer.analyze()
+            analyze(code)
 
     def test_conditions(self):
         code = dedent("""\
@@ -165,8 +160,7 @@ class TestTyper(unittest.TestCase):
         if not (a + b * 2 > 100 and a != 0):
             a = 10
         """)
-        typer = Typer(code)
-        tree = typer.analyze()
+        tree = analyze_env(code)
 
         self.assertEqual(tree.body[2].test.abstract_object, Bool().create_instance())
 
@@ -174,8 +168,7 @@ class TestTyper(unittest.TestCase):
         code = dedent("""\
         a = abs(-10)
         """)
-        typer = Typer(code)
-        tree = typer.analyze()
+        tree = analyze_env(code)
 
     def test_for(self):
         code = dedent("""\
@@ -184,8 +177,7 @@ class TestTyper(unittest.TestCase):
         for i in range(n):
             result += i
         """)
-        typer = Typer(code)
-        tree = typer.analyze()
+        tree = analyze_env(code)
         # i is int
         self.assertEqual(tree.body[2].body[0].value.abstract_object.get_obj(), Int().create_instance())
 
@@ -200,5 +192,4 @@ class TestTyper(unittest.TestCase):
         for i in lst:
             res += i
         """)
-        typer = Typer(code)
-        tree = typer.analyze()
+        tree = analyze_env(code)

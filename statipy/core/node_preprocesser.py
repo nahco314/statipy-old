@@ -373,8 +373,7 @@ class NodePreprocessor(ast.NodeTransformer):
         target = self.visit(node.target)
         iter = self.visit(node.iter)
         ifs = [self.visit(i) for i in node.ifs]
-        return Typedcomprehension(node.lineno, node.end_lineno, node.col_offset, node.end_col_offset,
-                                  target, iter, ifs, node.is_async)
+        return Typedcomprehension(target, iter, ifs, bool(node.is_async))
 
     def visit_Assign(self, node: ast.Assign) -> TypedAssign:
         targets = [self.visit(t) for t in node.targets]

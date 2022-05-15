@@ -5,7 +5,7 @@ import statipy.core.typed_ast as t_ast
 from statipy.core.environment import Environment
 from statipy.core.node_preprocesser import NodePreprocessor
 from statipy.core.typer import Typer
-from statipy.core.abstract_object import AbstractObject, Int, Bool, Str
+from statipy.core.abstract_object import AbstractObject, Int, Bool, Str, List, Dict
 import statipy.errors as errors
 from statipy.core.analyze import analyze,  analyze_env
 
@@ -160,7 +160,7 @@ class TestTyper(unittest.TestCase):
         if not (a + b * 2 > 100 and a != 0):
             a = 10
         """)
-        tree = analyze_env(code)
+        tree = analyze(code)
 
         self.assertEqual(tree.body[2].test.abstract_object, Bool().create_instance())
 
@@ -177,7 +177,7 @@ class TestTyper(unittest.TestCase):
         for i in range(n):
             result += i
         """)
-        tree = analyze_env(code)
+        tree = analyze(code)
         # i is int
         self.assertEqual(tree.body[2].body[0].value.abstract_object.get_obj(), Int().create_instance())
 

@@ -6,7 +6,7 @@ from ast import NodeTransformer
 from statipy.core.typed_ast import *
 from statipy.core.node_preprocesser import NodePreprocessor
 from statipy.core.abstract_object import (AbstractObject,
-                                          Int, Str, List, Tuple, Set, Dict, Bool, Slice,
+                                          Int, Str, List, Tuple, Set, Dict, Generator, Bool, Slice,
                                           Undefined)
 
 from statipy.core.basic_func import (py_add, py_sub, py_mul, py_div, py_floordiv, py_mod, py_pow, py_lshift, py_rshift,
@@ -28,12 +28,24 @@ from statipy.core.builtins import (abs_, all_, any_, ascii_, bin_, bool_, bytear
                                    sorted_, str_, sum_, tuple_, type_, zip_)
 import statipy.errors as errors
 
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
 
-from typing import Any
+from typing import Any, Type
 
 
-class Typer(NodeTransformer):
+class TyperBase(ABC, NodeTransformer):
+    @abstractmethod
+    def __init__(self, code: str, env: Environment = None):
+        self.t_ast: Typedmod = NodePreprocessor(code).make_ast()
+        self.env: Environment = env if env is not None else Environment(self.t_ast)
+
+    def analyze(self) -> Typedmod:
+        self.visit(self.t_ast)
+        return self.t_ast
+
+
+class Typer(TyperBase):
     def __init__(self, code: str, env: Environment = None):
         self.t_ast = NodePreprocessor(code).make_ast()
         if env is None:
@@ -469,19 +481,44 @@ class Typer(NodeTransformer):
         return node
 
     def visit_TypedListComp(self, node: TypedListComp) -> TypedListComp:
-        raise errors.Mijissou
+        [self.visit(generator) for generator in node.generators]
+        elt = self.visit(node.elt)
+        res = List().create_instance([elt.abstract_object.get_obj()])
+        node.abstract_object = res
+        return node
 
     def visit_TypedSetComp(self, node: TypedSetComp) -> TypedSetComp:
-        raise errors.Mijissou
+        [self.visit(generator) for generator in node.generators]
+        elt = self.visit(node.elt)
+        res = Set().create_instance([elt.abstract_object.get_obj()])
+        node.abstract_object = res
+        return node
 
     def visit_TypedGeneratorExp(self, node: TypedGeneratorExp) -> TypedGeneratorExp:
-        raise errors.Mijissou
+        [self.visit(generator) for generator in node.generators]
+        elt = self.visit(node.elt)
+        res = Generator().create_instance([elt.abstract_object.get_obj()])
+        node.abstract_object = res
+        return node
 
     def visit_TypedDictComp(self, node: TypedDictComp) -> TypedDictComp:
-        raise errors.Mijissou
+        [self.visit(generator) for generator in node.generators]
+        key = self.visit(node.key)
+        value = self.visit(node.value)
+        res = Dict().create_instance([key.abstract_object.get_obj(), value.abstract_object.get_obj()])
+        node.abstract_object = res
+        return node
 
     def visit_Typedcomprehension(self, node: Typedcomprehension) -> Typedcomprehension:
-        raise errors.Mijissou
+        with self.ignore_variables([node.target]):
+            self.visit(node.target)
+            self.visit(node.iter)
+
+        iter_obj = py_get_iter(self.env, node.iter.abstract_object.get_obj())
+        item = py_iter_next(self.env, iter_obj)
+        self.assign(node, node.target, item)
+
+        [self.visit(if_expr) for if_expr in node.ifs]
 
     def visit_TypedAssign(self, node: TypedAssign) -> TypedAssign:
         with self.ignore_variables([node.targets]):

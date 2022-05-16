@@ -791,6 +791,28 @@ class Dict(BuiltinType):
         pytype_ready(self)
 
 
+def gen_next(env, self: AbstractObject):
+    return self.get_obj().special_attr["elt"]
+
+
+class Generator(BuiltinType):
+    generic_names = ("elt",)
+
+    def __init__(self):
+        super().__init__()
+
+        # getattro
+        self.iter = self_iter
+        self.next = gen_next
+        # methods
+
+        # 関数式のジェネレータどうすればええんや　まあ必要になったら実装見る
+
+        self.special_attr["elt"] = Undefined()
+
+        pytype_ready(self)
+
+
 class Bool(BuiltinType):
     def __init__(self):
         super().__init__()

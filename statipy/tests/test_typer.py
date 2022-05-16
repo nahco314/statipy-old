@@ -5,7 +5,7 @@ import statipy.core.typed_ast as t_ast
 from statipy.core.environment import Environment
 from statipy.core.node_preprocesser import NodePreprocessor
 from statipy.core.typer import Typer
-from statipy.core.abstract_object import AbstractObject, Int, Bool, Str, List, Dict
+from statipy.core.abstract_object import AbstractObject, Int, Bool, Str, List, Dict, Set, Generator
 import statipy.errors as errors
 from statipy.core.analyze import analyze,  analyze_env
 
@@ -194,3 +194,25 @@ class TestTyper(unittest.TestCase):
             res += i
         """)
         tree = analyze_env(code)
+
+    def test_generator_comprehension(self):
+        code = dedent("""\
+        n = 100
+        r1 = [i for i in range(n)]
+        r2 = list(range(n))
+        e1 = [i for i in range(n) if i % 2 == 0]
+        e2 = [i for i in range(0, n, 2)]
+        
+        g = (i for i in range(n))
+        s = {i for i in range(n)}
+        d = {i: -i for i in range(n)}
+        """)
+        tree, env = analyze_env(code)
+
+        self.assertEqual(env.variables["r1"][0].value.get_obj(), List().create_instance([Int().create_instance()]))
+        self.assertEqual(env.variables["r2"][0].value.get_obj(), List().create_instance([Int().create_instance()]))
+        self.assertEqual(env.variables["e1"][0].value.get_obj(), List().create_instance([Int().create_instance()]))
+        self.assertEqual(env.variables["e2"][0].value.get_obj(), List().create_instance([Int().create_instance()]))
+        self.assertEqual(env.variables["g"][0].value.get_obj(), Generator().create_instance([Int().create_instance()]))
+        self.assertEqual(env.variables["s"][0].value.get_obj(), Set().create_instance([Int().create_instance()]))
+        self.assertEqual(env.variables["d"][0].value.get_obj(), Dict().create_instance([Int().create_instance(), Int().create_instance()]))

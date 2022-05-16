@@ -228,13 +228,8 @@ class TypedCompare(ast.Compare, Typedexpr):
 
 
 class Typedcomprehension(ast.comprehension, TypedAST):
-    def __init__(self, lineno: int, end_lineno: int, col_offset: int, end_col_offset: int,
-                 target: Typedexpr, iter_: Typedexpr, ifs: list[Typedexpr], is_async: bool):
+    def __init__(self, target: Typedexpr, iter_: Typedexpr, ifs: list[Typedexpr], is_async: bool):
         super(Typedcomprehension, self).__init__()
-        self.lineno = lineno
-        self.end_lineno = end_lineno
-        self.col_offset = col_offset
-        self.end_col_offset = end_col_offset
         self.target: Typedexpr = target
         self.iter: Typedexpr = iter_
         self.ifs: list[Typedexpr] = ifs

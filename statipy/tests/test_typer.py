@@ -167,6 +167,7 @@ class TestTyper(unittest.TestCase):
     def test_builtin_func(self):
         code = dedent("""\
         a = abs(-10)
+        b = int("10")
         """)
         tree = analyze_env(code)
 

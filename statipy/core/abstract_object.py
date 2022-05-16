@@ -4,7 +4,6 @@ import statipy.errors as errors
 from typing import Optional, TypeAlias, Callable, NamedTuple
 from collections import defaultdict
 
-
 # richcompare operators
 NE = 0
 EQ = 1
@@ -25,6 +24,7 @@ class AbstractObject:
 
         self.type = type_
 
+        # todo: atteの管理方法を変える
         self.attr: Attr = defaultdict(Undefined)
         self.special_attr: Attr = defaultdict(Undefined)
         self.special_attr["type"] = self.type
@@ -238,6 +238,7 @@ class AbstractType(AbstractObject):
 
         self.mro: list[AbstractType] = []
         self.base: Optional[AbstractType] = None
+        self.bases: Optional[list[AbstractType]] = None
 
     def unification(self, target: AbstractObject):
         # ここはこのままじゃだめそう
@@ -256,7 +257,6 @@ class AbstractType(AbstractObject):
                     raise Exception("Generic types are not defined.")
                 generics = dict(zip(self.__class__.generic_names, generics))
             for key, value in generics.items():
-                print(obj.special_attr, repr(value), key)
                 obj.special_attr[key].unification(value)
         return obj
 
@@ -265,7 +265,27 @@ class AbstractType(AbstractObject):
         return self is type_
 
 
-class BuiltinType(AbstractType):
+class BuiltinTypeMeta(type):
+    """
+    singleton
+    """
+
+    def __new__(mcs, name, bases, attrs):
+        if name != "BuiltinType":
+            __init__ = attrs.get("__init__", object.__init__)
+
+            def wrapper(self, *args, **kwargs):
+                if self.__class__._init:
+                    return
+                self.__class__._init = True
+                __init__(self, *args, **kwargs)
+
+            attrs["__init__"] = wrapper
+
+        return super().__new__(mcs, name, bases, attrs)
+
+
+class BuiltinType(AbstractType, metaclass=BuiltinTypeMeta):
     # singleton
     _instance = None
     _init = False
@@ -278,17 +298,284 @@ class BuiltinType(AbstractType):
             cls._instance = obj
             return obj
 
-    def __init__(self):
-        if self.__class__._init:
-            return
-        self.__class__._init = True
+    def __repr__(self):
+        return f"<BuiltinType {self.__class__.__name__}>"
 
-        super().__init__()
+
+def object_new(env, type_: AbstractType, *args, **kwargs):
+    return type_.create_instance()
 
 
 class Object(BuiltinType):
     def __init__(self):
         super(Object, self).__init__()
+
+        self.new = object_new
+
+        type_ready(self)
+
+
+def type_call(env, type_: AbstractType, args: list[AbstractObject], kwargs: dict[str, AbstractObject]):
+    if type_ is Type():
+        if len(args) == 1 and len(kwargs) == 0:
+            obj = args[0].get_type()
+            return obj
+
+        if len(args) != 3:
+            raise errors.TypingError
+
+    if type_.new is None:
+        raise errors.TypingError
+
+    obj = type_.new(env, type_, args, kwargs)
+    if not obj.get_type().is_subtype(type_):
+        raise errors.TypingError
+
+    type_ = obj.get_type()
+    if type_.init is not None:
+        obj = type_.init(env, obj, args, kwargs)
+    return obj
+
+
+class TypeNewCtx(NamedTuple):
+    metatype: AbstractType
+    args: list[AbstractObject]
+    kwargs: dict[str, AbstractObject]
+    orig_dict: dict[str, AbstractObject]
+    name: str
+    bases: list[AbstractType]
+    base: Optional[AbstractType]
+    slots: list[str]
+    nslot: int
+    add_dict: int
+    add_weak: int
+    may_add_dict: int
+    may_add_weak: int
+
+
+def calculate_metaclass(metatype: AbstractType, bases: list[AbstractType]):
+    winner = metatype
+    for tmp in bases:
+        tmptype = tmp.get_type()
+        if winner.is_subtype(tmptype):
+            continue
+        if tmptype.is_subtype(winner):
+            winner = tmptype
+            continue
+        raise errors.TypingError
+    return winner
+
+
+def solid_base(type_: AbstractType):
+    base: AbstractType
+    if type_.base:
+        base = solid_base(type_.base.get_obj())
+    else:
+        base = Object()
+    # extra_ivers ってなんなんや
+    return base
+
+
+def best_base(bases: list[AbstractType]):
+    base = None
+    winner = None
+    for base_proto in bases:
+        if not base_proto.get_type().is_subtype(Type()):
+            raise errors.TypingError
+        base_i: AbstractType = base_proto
+        candidate = solid_base(base_i)
+        if winner is None:
+            winner = candidate
+            base = base_i
+        elif winner.is_subtype(candidate):
+            pass
+        elif candidate.is_subtype(winner):
+            winner = candidate
+            base = base_i
+        else:
+            raise errors.TypingError
+    return base
+
+
+def type_new_get_bases(env, ctx: TypeNewCtx) -> tuple[int, Optional[AbstractType]]:
+    nbases = len(ctx.bases)
+    if nbases == 0:
+        ctx.base = Object()
+        ctx.bases = [ctx.base]
+        return 0, None
+
+    # mro_entries?
+
+    winner = calculate_metaclass(ctx.metatype, ctx.bases)
+    type_ = None
+    if winner != ctx.metatype:
+        if winner.new != type_new:
+            type_ = winner.new(env, winner, ctx.args, ctx.kwargs)
+            assert isinstance(type_, AbstractType)
+            return 1, type_
+        ctx.metatype = winner
+
+    base = best_base(ctx.bases)
+
+    ctx.base = base
+    return 0, type_
+
+
+def type_new_init(env, ctx: TypeNewCtx):
+    dict_ = ctx.orig_dict.copy()
+    # type_new_alloc の意味ある？
+    type_ = AbstractType()
+    type_.bases = ctx.bases
+    type_.base = ctx.base
+    type_.name = ctx.name
+
+    type_.attr.update(ctx.orig_dict)  # dictってなに
+    # etってなに
+
+    return type_
+
+
+def type_ready_set_bases(type_: AbstractType):
+    base = type_.base
+    if base is None and type_ is not Object():
+        base = Object()
+    type_.base = base
+
+    # initialize the base class?
+
+    bases = type_.bases
+    if bases is None:
+        base = type_.base
+        if base is None:
+            bases = []
+        else:
+            bases = [base]
+        type_.bases = bases
+
+
+def pmerge(acc: list[AbstractObject], to_merge: list[list[AbstractType]]):
+    remain = [0] * len(to_merge)
+    empty_cnt = 0
+    while True:
+        for i in range(len(to_merge)):
+            cur_tuple = to_merge[i]
+            if remain[i] >= len(cur_tuple):
+                empty_cnt += 1
+                continue
+
+            candidate = cur_tuple[remain[i]]
+            skip = False
+            for j in range(len(to_merge)):
+                j_lst = to_merge[j]
+                if any(a == candidate for a in j_lst[remain[j]+1:]):
+                    skip = True
+                    break
+            if skip:
+                continue
+            acc.append(candidate)
+
+            for j in range(len(to_merge)):
+                j_lst = to_merge[j]
+                if remain[j] < len(j_lst) and j_lst[remain[j]] == candidate:
+                    remain[j] += 1
+            break
+        else:
+            break
+        continue
+
+    if empty_cnt != len(to_merge):
+        raise Exception  # todo: mro error
+
+
+def mro_impl(type_: AbstractType):
+    bases = type_.bases
+    if len(bases) == 1:
+        base = bases[0]
+        return [type_, *base.mro]
+    to_marge = [*(base.mro for base in bases), bases]
+
+    result = [type_]
+    pmerge(result, to_marge)
+    return result
+
+
+def mro_invoke(type_: AbstractType):
+    # custom is nani
+    mro_result = mro_impl(type_)
+
+    new_mro = mro_result.copy()
+
+    return new_mro
+
+
+def mro_internal(type_: AbstractType):
+    old_mro = type_.mro
+    new_mro = mro_invoke(type_)
+    # reent = type_.mro != old_mro ?
+
+    type_.mro = new_mro
+
+    # type_mro_modified is nani
+
+    # PyType_Modified is nani
+
+    return old_mro
+
+
+def type_ready_mro(type_: AbstractType):
+    mro_internal(type_)
+    # 処理よくわかりません tp_flags考えないといけないんか？
+
+
+def type_ready(type_: AbstractType):
+    # ここいらの関数が必要かどうかは要検討そう
+    type_ready_set_bases(type_)
+    type_ready_mro(type_)
+    # set_new
+    # fill_dict
+    type_ready_inherit(type_)
+    # set_hash
+    # add_subclasses
+    # post_checks
+
+
+def type_new_inpl(env, ctx: TypeNewCtx):
+    type_ = type_new_init(env, ctx)
+
+    pytype_ready(type_)
+
+    # module
+    # doc?
+    # ToDo: __new__, __init_subclass__, __class_getitem__, type_new_descriptors, type_new_set_slots,
+    #  type_new_set_classcell, type_new_set_names, type_new_init_subclass
+    return type_
+
+
+def type_new(env, metatype: AbstractType, args: list[AbstractObject], kwargs: dict[str, AbstractObject]):
+    name, bases, orig_dict = args
+    # name を渡せないが...
+    ctx = TypeNewCtx(metatype, args, kwargs, orig_dict, "", bases, None, [], 0, 0, 0, 0, 0)
+
+    res, type_ = type_new_get_bases(env, ctx)
+    if res == 1:
+        return type_
+    type_ = type_new_inpl(env, ctx)
+    return type_
+
+
+def copyslot(type_: AbstractType, base: AbstractType, slot_name: str):
+    if getattr(type_, slot_name) is None:
+        setattr(type_, slot_name, getattr(base, slot_name))
+
+
+def type_ready_inherit(type_: AbstractType):
+    for base in type_.mro[1:]:
+        for slot_name, _ in AbstractType.method_table:
+            copyslot(type_, base, slot_name)
+
+
+def pytype_ready(type_: AbstractType):
+    type_ready(type_)
 
 
 class Type(BuiltinType):
@@ -299,145 +586,49 @@ class Type(BuiltinType):
     def __init__(self):
         super(Type, self).__init__()
 
-        def type_call(env, type_: AbstractType, args: list[AbstractObject], kwargs: dict[str, AbstractObject]):
-            if type_ is Type():
-                if len(args) == 1 and len(kwargs) == 0:
-                    obj = args[0].get_type()
-                    return obj
-
-                if len(args) != 3:
-                    raise errors.TypingError
-
-            if type_.new is None:
-                raise errors.TypingError
-
-            obj = type_.new(env, type_, args, kwargs)
-            if not obj.get_type().is_subtype(type_):
-                raise errors.TypingError
-
-            type_ = obj.get_type()
-            if type_.init is not None:
-                obj = type_.init(env, obj, args, kwargs)
-            return obj
-
-        class TypeNewCtx(NamedTuple):
-            metatype: AbstractType
-            args: list[AbstractObject]
-            kwargs: dict[str, AbstractObject]
-            orig_dict: dict[str, AbstractObject]
-            name: str
-            bases: list[AbstractType]
-            base: Optional[AbstractType]
-            slots: list[str]
-            nslot: int
-            add_dict: int
-            add_weak: int
-            may_add_dict: int
-            may_add_weak: int
-
-        def calculate_metaclass(metatype: AbstractType, bases: list[AbstractType]):
-            winner = metatype
-            for tmp in bases:
-                tmptype = tmp.get_type()
-                if winner.is_subtype(tmptype):
-                    continue
-                if tmptype.is_subtype(winner):
-                    winner = tmptype
-                    continue
-                raise errors.TypingError
-            return winner
-
-        def solid_base(type_: AbstractType):
-            base: AbstractType
-            if type_.base:
-                base = solid_base(type_.base.get_obj())
-            else:
-                base = Object()
-            # extra_ivers ってなんなんや
-            return base
-
-        def best_base(bases: list[AbstractType]):
-            base = None
-            winner = None
-            for base_proto in bases:
-                if not base_proto.get_type().is_subtype(Type()):
-                    raise errors.TypingError
-                base_i: AbstractType = base_proto
-                candidate = solid_base(base_i)
-                if winner is None:
-                    winner = candidate
-                    base = base_i
-                elif winner.is_subtype(candidate):
-                    pass
-                elif candidate.is_subtype(winner):
-                    winner = candidate
-                    base = base_i
-                else:
-                    raise errors.TypingError
-            return base
-
-        def type_new_get_bases(env, ctx: TypeNewCtx) -> tuple[int, Optional[AbstractType]]:
-            nbases = len(ctx.bases)
-            if nbases == 0:
-                ctx.base = Object()
-                ctx.bases = [ctx.base]
-                return 0, None
-
-            # mro_entries?
-
-            winner = calculate_metaclass(ctx.metatype, ctx.bases)
-            type_ = None
-            if winner != ctx.metatype:
-                if winner.new != type_new:
-                    type_ = winner.new(env, winner, ctx.args, ctx.kwargs)
-                    assert isinstance(type_, AbstractType)
-                    return 1, type_
-                ctx.metatype = winner
-
-            base = best_base(ctx.bases)
-
-            ctx.base = base
-            return 0, type_
-
-        def type_new_init(env, ctx: TypeNewCtx):
-            dict_ = ctx.orig_dict.copy()
-            # type_new_alloc の意味ある？
-            type_ = AbstractType()
-            type_.bases = ctx.bases
-            type_.base = ctx.base
-            type_.name = ctx.name
-
-            type_.attr.update(ctx.orig_dict)  # dictってなに
-            # etってなに
-
-            return type_
-
-        def type_new_inpl(env, ctx: TypeNewCtx):
-            type_ = type_new_init(env, ctx)
-            # module
-            # doc?
-            # ToDo: __new__, __init_subclass__, __class_getitem__, type_new_descriptors, type_new_set_slots,
-            #  type_new_set_classcell, type_new_set_names, type_new_init_subclass
-            return type_
-
-        def type_new(env, metatype: AbstractType, args: list[AbstractObject], kwargs: dict[str, AbstractObject]):
-            name, bases, orig_dict = args
-            # name を渡せないが...
-            ctx = TypeNewCtx(metatype, args, kwargs, orig_dict, "", bases, None, [], 0, 0, 0, 0, 0)
-
-            self.call = type_call
-            res, type_ = type_new_get_bases(env, ctx)
-            if res == 1:
-                return type_
-            type_ = type_new_inpl(env, ctx)
-            return type_
-
         self.call = type_call
         self.new = type_new
 
+        pytype_ready(self)
+
 
 class NotImplementedType(BuiltinType):
-    pass
+    def __init__(self):
+        super(NotImplementedType, self).__init__()
+
+        pytype_ready(self)
+
+
+def str_concat(env, a: AbstractObject, b: AbstractObject) -> AbstractObject:
+    if not a.get_type().is_subtype(Str()):
+        return py_not_implemented
+    if not b.get_type().is_subtype(Str()):
+        return py_not_implemented
+
+    return Str().create_instance()
+
+
+def str_repeat(env, str_: AbstractObject, len_: int):
+    if not str_.get_type().is_subtype(Str()):
+        return py_not_implemented
+
+    return Str().create_instance()
+
+
+def str_getitem(env, self: AbstractObject, index: int):
+    if not self.get_type().is_subtype(Str()):
+        return py_not_implemented
+
+    return Str().create_instance()
+
+
+def str_contains(env, str_: AbstractObject, substr: AbstractObject):
+    if not str_.get_type().is_subtype(Str()):
+        return py_not_implemented
+    if not substr.get_type().is_subtype(Str()):
+        return py_not_implemented
+
+    return Bool().create_instance()
 
 
 class Str(BuiltinType):
@@ -448,34 +639,6 @@ class Str(BuiltinType):
     def __init__(self):
         super().__init__()
 
-        def str_concat(env, a: AbstractObject, b: AbstractObject) -> AbstractObject:
-            if not a.get_type().is_subtype(Str()):
-                return py_not_implemented
-            if not b.get_type().is_subtype(Str()):
-                return py_not_implemented
-
-            return Str().create_instance()
-
-        def str_repeat(env, str_: AbstractObject, len_: int):
-            if not str_.get_type().is_subtype(Str()):
-                return py_not_implemented
-
-            return Str().create_instance()
-
-        def str_getitem(env, self: AbstractObject, index: int):
-            if not self.get_type().is_subtype(Str()):
-                return py_not_implemented
-
-            return Str().create_instance()
-
-        def str_contains(env, str_: AbstractObject, substr: AbstractObject):
-            if not str_.get_type().is_subtype(Str()):
-                return py_not_implemented
-            if not substr.get_type().is_subtype(Str()):
-                return py_not_implemented
-
-            return Bool().create_instance()
-
         self.length = obj_len_func
         self.concat = str_concat
         self.repeat = str_repeat
@@ -483,6 +646,38 @@ class Str(BuiltinType):
         self.inplace_repeat = str_repeat
         self.get_item = str_getitem
         self.contains = str_contains
+
+        pytype_ready(self)
+
+
+def int_bin_func(env, a: AbstractObject, b: AbstractType) -> AbstractObject:
+    if a.get_type().is_subtype(Int()) and b.type.is_subtype(Int()):
+        return Int().create_instance()
+    return py_not_implemented
+
+
+def true_div(env, a: AbstractObject, b: AbstractObject) -> AbstractObject:
+    if a.get_type().is_subtype(Int()) and b.type.is_subtype(Int()):
+        return Float().create_instance()
+    return py_not_implemented
+
+
+def pow_func(env, a: AbstractObject, b: AbstractObject, c: Optional[AbstractObject]) -> AbstractObject:
+    if a.get_type().is_subtype(Int()) and b.type.is_subtype(Int()) and (c is None or c.type.is_subtype(Int())):
+        return Int().create_instance()
+    return py_not_implemented
+
+
+def int_int(env, a: AbstractObject) -> AbstractObject:
+    return Int().create_instance()
+
+
+def divmod_func(env, a: AbstractObject, b: AbstractObject) -> AbstractObject:
+    if a.get_type().is_subtype(Int()) and b.type.is_subtype(Int()):
+        res = Tuple().create_instance()
+        res.special_attr["elt"] = Int().create_instance()
+        return res
+    return py_not_implemented
 
 
 class Int(BuiltinType):
@@ -492,31 +687,6 @@ class Int(BuiltinType):
 
     def __init__(self):
         super().__init__()
-
-        def int_bin_func(env, a: AbstractObject, b: AbstractType) -> AbstractObject:
-            if a.get_type().is_subtype(Int()) and b.type.is_subtype(Int()):
-                return Int().create_instance()
-            return py_not_implemented
-
-        def true_div(env, a: AbstractObject, b: AbstractObject) -> AbstractObject:
-            if a.get_type().is_subtype(Int()) and b.type.is_subtype(Int()):
-                return Float().create_instance()
-            return py_not_implemented
-
-        def pow_func(env, a: AbstractObject, b: AbstractObject, c: Optional[AbstractObject]) -> AbstractObject:
-            if a.get_type().is_subtype(Int()) and b.type.is_subtype(Int()) and (c is None or c.type.is_subtype(Int())):
-                return Int().create_instance()
-            return py_not_implemented
-
-        def int_int(env, a: AbstractObject) -> AbstractObject:
-            return Int().create_instance()
-
-        def divmod_func(env, a: AbstractObject, b: AbstractObject) -> AbstractObject:
-            if a.get_type().is_subtype(Int()) and b.type.is_subtype(Int()):
-                res = Tuple().create_instance()
-                res.special_attr["elt"] = Int().create_instance()
-                return res
-            return py_not_implemented
 
         self.add = int_bin_func
         self.sub = int_bin_func
@@ -552,15 +722,25 @@ class Int(BuiltinType):
         self.invert = int_int
         self.index = int_int
 
+        pytype_ready(self)
+
 
 class Float(BuiltinType):
     def __init__(self):
         super().__init__()
 
+        pytype_ready(self)
+
 
 class Complex(BuiltinType):
     def __init__(self):
         super().__init__()
+
+        pytype_ready(self)
+
+
+def list_getitem(env, self: AbstractObject, index: int):
+    return self.get_obj().special_attr["elt"]
 
 
 class List(BuiltinType):
@@ -569,12 +749,11 @@ class List(BuiltinType):
     def __init__(self):
         super().__init__()
 
-        def list_getitem(env, self: AbstractObject, index: int):
-            return self.get_obj().special_attr["elt"]
-
         self.special_attr["elt"] = Undefined()
 
         self.get_item = list_getitem
+
+        pytype_ready(self)
 
 
 class Tuple(BuiltinType):
@@ -586,6 +765,8 @@ class Tuple(BuiltinType):
 
         self.special_attr["elt"] = Undefined()
 
+        pytype_ready(self)
+
 
 class Set(BuiltinType):
     generic_names = ("elt",)
@@ -594,6 +775,8 @@ class Set(BuiltinType):
         super().__init__()
 
         self.special_attr["elt"] = Undefined()
+
+        pytype_ready(self)
 
 
 class Dict(BuiltinType):
@@ -605,16 +788,22 @@ class Dict(BuiltinType):
         self.special_attr["key"] = Undefined()
         self.special_attr["value"] = Undefined()
 
+        pytype_ready(self)
+
 
 class Bool(BuiltinType):
     def __init__(self):
         super().__init__()
         # ToDo: Intを継承させる
 
+        pytype_ready(self)
+
 
 class Slice(BuiltinType):
     def __init__(self):
         super().__init__()
+
+        pytype_ready(self)
 
 
 class Iterator(BuiltinType):
@@ -628,16 +817,22 @@ class Iterator(BuiltinType):
         self.iter = self_iter
         self.next = iter_next
 
+        pytype_ready(self)
+
+
+def call_func(env, func: AbstractObject, args: list[AbstractObject],
+              kwargs: dict[str, AbstractObject]) -> AbstractObject:
+    assert func.function
+    return func.function(env, args, kwargs)
+
 
 class BuiltinFunction(BuiltinType):
     def __init__(self):
         super().__init__()
 
-        def call_func(env, func: AbstractObject, args: list[AbstractObject], kwargs: dict[str, AbstractObject]) -> AbstractObject:
-            assert func.function
-            return func.function(env, args, kwargs)
-
         self.call = call_func
+
+        pytype_ready(self)
 
     def create_instance(self, function: Optional[function] = None) -> AbstractObject:
         assert function is not None
@@ -650,30 +845,97 @@ class ByteArray(BuiltinType):
     def __init__(self):
         super().__init__()
 
+        pytype_ready(self)
+
 
 class Bytes(BuiltinType):
     def __init__(self):
         super().__init__()
+
+        pytype_ready(self)
 
 
 class Enumerate(BuiltinType):
     def __init__(self):
         super().__init__()
 
+        pytype_ready(self)
+
 
 class Filter(BuiltinType):
     def __init__(self):
         super().__init__()
+
+        pytype_ready(self)
 
 
 class Map(BuiltinType):
     def __init__(self):
         super().__init__()
 
+        pytype_ready(self)
+
 
 class MemoryView(BuiltinType):
     def __init__(self):
         super().__init__()
+
+        pytype_ready(self)
+
+
+def range_bool(env, o: AbstractObject) -> AbstractObject:
+    return Bool().create_instance()
+
+
+def range_len(env, o: AbstractObject) -> AbstractObject:
+    return Int().create_instance()
+
+
+def range_item(env, r: AbstractObject, i: int) -> AbstractObject:
+    return Int().create_instance()
+
+
+def range_contains(env, r: AbstractObject, obj: AbstractObject) -> AbstractObject:
+    return Bool().create_instance()
+
+
+def range_richcompare(env, self: AbstractObject, other: AbstractObject, op: int) -> AbstractObject:
+    if not other.get_type().is_subtype(Range()):
+        return py_not_implemented
+    if op == EQ:
+        return Bool().create_instance()
+    return py_not_implemented
+
+
+def range_iter(env, r: AbstractObject) -> AbstractObject:
+    return RangeIterator().create_instance()
+
+
+def range_new(env, type_: AbstractObject, args: list[AbstractObject],
+              kwargs: dict[str, AbstractObject]) -> AbstractObject:
+    start = stop = step = None
+
+    if len(args) == 3:
+        start = args[0]
+        stop = args[1]
+        step = args[2]
+    elif len(args) == 2:
+        start = args[0]
+        stop = args[1]
+        step = Int().create_instance()
+    elif len(args) == 1:
+        start = Int().create_instance()
+        stop = args[0]
+        step = Int().create_instance()
+    else:
+        raise errors.TypingError
+
+    obj = Range().create_instance()
+    obj.attr["start"] = start
+    obj.attr["stop"] = stop
+    obj.attr["step"] = step
+
+    return obj
 
 
 class Range(BuiltinType):
@@ -684,53 +946,6 @@ class Range(BuiltinType):
 
     def __init__(self):
         super().__init__()
-
-        def range_bool(env, o: AbstractObject) -> AbstractObject:
-            return Bool().create_instance()
-
-        def range_len(env, o: AbstractObject) -> AbstractObject:
-            return Int().create_instance()
-
-        def range_item(env, r: AbstractObject, i: int) -> AbstractObject:
-            return Int().create_instance()
-
-        def range_contains(env, r: AbstractObject, obj: AbstractObject) -> AbstractObject:
-            return Bool().create_instance()
-
-        def range_richcompare(env, self: AbstractObject, other: AbstractObject, op: int) -> AbstractObject:
-            if not other.get_type().is_subtype(Range()):
-                return py_not_implemented
-            if op == EQ:
-                return Bool().create_instance()
-            return py_not_implemented
-
-        def range_iter(env, r: AbstractObject) -> AbstractObject:
-            return RangeIterator().create_instance()
-
-        def range_new(env, type_: AbstractObject, args: list[AbstractObject], kwargs: dict[str, AbstractObject]) -> AbstractObject:
-            start = stop = step = None
-
-            if len(args) == 3:
-                start = args[0]
-                stop = args[1]
-                step = args[2]
-            elif len(args) == 2:
-                start = args[0]
-                stop = args[1]
-                step = Int().create_instance()
-            elif len(args) == 1:
-                start = Int().create_instance()
-                stop = args[0]
-                step = Int().create_instance()
-            else:
-                raise errors.TypingError
-
-            obj = Range().create_instance()
-            obj.attr["start"] = start
-            obj.attr["stop"] = stop
-            obj.attr["step"] = step
-
-            return obj
 
         self.name = "range"
         self.doc = ""
@@ -747,6 +962,12 @@ class Range(BuiltinType):
         # members
         self.new = range_new
 
+        pytype_ready(self)
+
+
+def rangeiter_next(env, r: AbstractObject) -> AbstractObject:
+    return Int().create_instance()
+
 
 class RangeIterator(BuiltinType):
     """ range iterator
@@ -756,9 +977,6 @@ class RangeIterator(BuiltinType):
     def __init__(self):
         super().__init__()
 
-        def rangeiter_next(env, r: AbstractObject) -> AbstractObject:
-            return Int().create_instance()
-
         self.name = "range_iterator"
         self.doc = ""
         # self.getattro
@@ -766,22 +984,28 @@ class RangeIterator(BuiltinType):
         self.next = rangeiter_next
         # methods
 
+        pytype_ready(self)
+
 
 class Reversed(BuiltinType):
     def __init__(self):
         super().__init__()
+
+        pytype_ready(self)
 
 
 class Zip(BuiltinType):
     def __init__(self):
         super().__init__()
 
+        pytype_ready(self)
+
 
 Attr: TypeAlias = dict[str, AbstractObject]
 
-
 binary_func: TypeAlias = Callable[["Environment", AbstractObject, AbstractObject], AbstractObject]
-ternary_func: TypeAlias = Callable[["Environment", AbstractObject, AbstractObject, Optional[AbstractObject]], AbstractObject]
+ternary_func: TypeAlias = Callable[
+    ["Environment", AbstractObject, AbstractObject, Optional[AbstractObject]], AbstractObject]
 unary_func: TypeAlias = Callable[["Environment", AbstractObject], AbstractObject]
 ssizeargfunc: TypeAlias = Callable[["Environment", AbstractObject, int], AbstractObject]
 
@@ -799,7 +1023,8 @@ descr_get_func: TypeAlias = Callable[["Environment", AbstractObject, AbstractObj
 descr_set_func: TypeAlias = Callable[["Environment", AbstractObject, AbstractObject, AbstractObject], AbstractObject]
 richcmp_func: TypeAlias = Callable[["Environment", AbstractObject, AbstractObject, int], AbstractObject]
 
-call_function: TypeAlias = Callable[["Environment", AbstractObject, list[AbstractObject], dict[str, AbstractObject]], AbstractObject]
+call_function: TypeAlias = Callable[
+    ["Environment", AbstractObject, list[AbstractObject], dict[str, AbstractObject]], AbstractObject]
 function: TypeAlias = Callable[["Environment", list[AbstractObject], dict[str, AbstractObject]], AbstractObject]
 
 py_not_implemented = NotImplementedType().create_instance()
@@ -819,4 +1044,3 @@ def obj_hash_func(self):
 
 def self_iter(self):
     return self
-

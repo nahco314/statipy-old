@@ -195,6 +195,17 @@ class TestTyper(unittest.TestCase):
         """)
         tree = analyze_env(code)
 
+    def test_list_without_elt(self):
+        code = dedent("""\
+        lst1 = []
+        lst2 = []
+        for i in lst2:
+            a = i
+        d = {0: lst1, 1: lst2}
+        lst1.append(0)
+        """)
+        tree = analyze_env(code)
+
     def test_generator_comprehension(self):
         code = dedent("""\
         n = 100

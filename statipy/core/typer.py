@@ -293,7 +293,8 @@ class Typer(TyperBase):
         for obj in a_objects:
             obj.unification(a_objects[0].get_obj())
         res = List().create_instance()
-        res.special_attr["elt"] = a_objects[0].get_obj()
+        if a_objects:
+            res.special_attr["elt"] = a_objects[0].get_obj()
         node.abstract_object = res
         return node
 
@@ -303,7 +304,8 @@ class Typer(TyperBase):
         for obj in a_objects:
             obj.unification(a_objects[0].get_obj())
         res = Tuple().create_instance()
-        res.special_attr["elt"] = a_objects[0].get_obj()
+        if a_objects:
+            res.special_attr["elt"] = a_objects[0].get_obj()
         node.abstract_object = res
         return node
 
@@ -313,7 +315,8 @@ class Typer(TyperBase):
         for obj in a_objects:
             obj.unification(a_objects[0].get_obj())
         res = Set().create_instance()
-        res.special_attr["elt"] = a_objects[0].get_obj()
+        if a_objects:
+            res.special_attr["elt"] = a_objects[0].get_obj()
         node.abstract_object = res
         return node
 
@@ -326,8 +329,9 @@ class Typer(TyperBase):
         for obj in value_a_objects:
             obj.unification(value_a_objects[0].get_obj())
         res = Dict().create_instance()
-        res.special_attr["key"] = key_a_objects[0].get_obj()
-        res.special_attr["value"] = value_a_objects[0].get_obj()
+        if key_a_objects:
+            res.special_attr["key"] = key_a_objects[0].get_obj()
+            res.special_attr["value"] = value_a_objects[0].get_obj()
         node.abstract_object = res
         return node
 
